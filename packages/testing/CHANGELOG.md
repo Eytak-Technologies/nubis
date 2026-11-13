@@ -1,5 +1,11 @@
 # @nubisjs/testing
 
+## 0.1.0-next.2
+
+### Patch Changes
+
+- @nubisjs/core@0.1.0-next.2
+
 ## 0.1.0-next.1
 
 ### Minor Changes
