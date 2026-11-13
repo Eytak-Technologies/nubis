@@ -1,0 +1,28 @@
+{
+	"name": "nubis-monorepo",
+	"private": true,
+	"type": "module",
+	"packageManager": "bun@1.4.4",
+	"workspaces": [
+		"packages/*"
+	],
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"build": "turbo run build",
+		"lint": "turbo run lint",
+		"check-types": "turbo run check-types",
+		"test": "turbo run test",
+		"format": "bun fmt",
+		"smoke:node": "node scripts/smoke-node.mjs",
+		"ci:verify": "bun run lint && bun fmt --check && bun run check-types && bun run test && bun run build && bun run smoke:node"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.6.7",
+		"@types/bun": "^1.4.4",
+		"@types/node": "^20",
+		"turbo": "^2.11.11",
+		"typescript": "^7.0.2"
+	}
+}

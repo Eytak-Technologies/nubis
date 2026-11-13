@@ -1,0 +1,29 @@
+import type { OptionMap, ResolvedOptions } from "./option";
+
+export interface CommandContext<T extends OptionMap> {
+	readonly options: ResolvedOptions<T>;
+	reply(content: string): Promise<void>;
+}
+
+export interface CommandConfig<T extends OptionMap> {
+	readonly description: string;
+	readonly options?: T;
+	run(context: CommandContext<T>): unknown;
+}
+
+export interface CommandDefinition<
+	T extends OptionMap,
+> extends CommandConfig<T> {
+	readonly kind: "command";
+	readonly options: T;
+}
+
+export function command<T extends OptionMap = Record<never, never>>(
+	config: CommandConfig<T>,
+): CommandDefinition<T> {
+	return {
+		...config,
+		kind: "command",
+		options: config.options ?? ({} as T),
+	};
+}

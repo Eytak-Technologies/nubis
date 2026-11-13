@@ -1,0 +1,44 @@
+{
+	"name": "nubis",
+	"version": "0.0.0",
+	"description": "The Discord bot framework that feels like building a modern web app. Built by Eytak.",
+	"keywords": [
+		"discord",
+		"discord-bot",
+		"framework",
+		"nubis"
+	],
+	"license": "MIT",
+	"author": "Eytak",
+	"homepage": "https://github.com/Eytak-Technologies/nubis",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Eytak-Technologies/nubis.git",
+		"directory": "packages/nubis"
+	},
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"bin": {
+		"nubis": "./dist/cli.js"
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"build": "bun build ./src/index.ts ./src/cli.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json",
+		"check-types": "tsc --noEmit",
+		"test": "bun test",
+		"lint": "biome lint ."
+	},
+	"dependencies": {
+		"@nubisjs/core": "workspace:*"
+	}
+}

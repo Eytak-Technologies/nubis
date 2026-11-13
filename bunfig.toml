@@ -1,0 +1,4 @@
+# `bun fmt` formats; Biome only lints (its formatter is off), same split as eytak-v3.
+[fmt]
+useTabs = true
+ignorePatterns = ["**/*.md", "**/*.yml", "**/*.yaml", "**/*.toml", "**/dist/**"]
