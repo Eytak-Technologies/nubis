@@ -1,6 +1,6 @@
 # create-nubis
 
-Start a [Nubis](https://github.com/Eytak-Technologies/nubis) Discord bot:
+Start a [Nubis](https://eytak.com/nubis) Discord bot:
 
 ```sh
 npx create-nubis my-bot

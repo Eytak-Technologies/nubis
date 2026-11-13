@@ -4,11 +4,13 @@
 	"description": "Command and option definitions for Nubis, with types inferred from your definitions.",
 	"license": "MIT",
 	"author": "Eytak",
+	"homepage": "https://eytak.com/nubis",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/Eytak-Technologies/nubis.git",
 		"directory": "packages/core"
 	},
+	"bugs": "https://github.com/Eytak-Technologies/nubis/issues",
 	"type": "module",
 	"sideEffects": false,
 	"exports": {

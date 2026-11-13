@@ -10,12 +10,13 @@
 	],
 	"license": "MIT",
 	"author": "Eytak",
-	"homepage": "https://github.com/Eytak-Technologies/nubis",
+	"homepage": "https://eytak.com/nubis",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/Eytak-Technologies/nubis.git",
 		"directory": "packages/nubis"
 	},
+	"bugs": "https://github.com/Eytak-Technologies/nubis/issues",
 	"type": "module",
 	"exports": {
 		".": {

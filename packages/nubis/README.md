@@ -16,6 +16,6 @@ export default command({
 - `nubis/node`: load a bot from its folders, serve it with `node:http`
 - `nubis/testing`: run commands and components as Discord would, in tests
 
-Docs and examples: https://github.com/Eytak-Technologies/nubis
+Docs: https://eytak.com/nubis/docs. Source: https://github.com/Eytak-Technologies/nubis
 
 MIT. Built by [Eytak](https://eytak.com).

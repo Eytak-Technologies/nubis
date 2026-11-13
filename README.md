@@ -2,6 +2,8 @@
 
 **The Discord bot framework that feels like building a modern web app.** A file is a command, types come from your definitions, components carry typed state, and tests run without Discord.
 
+**Docs: [eytak.com/nubis/docs](https://eytak.com/nubis/docs)**
+
 > Nubis is in active development and not released yet. Everything below works today; the first release, 0.1.0, is on its way.
 
 ```ts

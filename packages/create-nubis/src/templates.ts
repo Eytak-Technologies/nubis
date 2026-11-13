@@ -53,7 +53,7 @@ export function templateFiles(
 
 		"nubis.config.ts": `import { defineConfig } from "nubis";
 
-// Settings for the whole bot. Every key is optional; see the Nubis README.
+// Settings for the whole bot. Every key is optional; see https://eytak.com/nubis/docs/configuration
 export default defineConfig({
 	presence: { activity: { type: "watching", name: "for /ping" } },
 });
@@ -69,7 +69,7 @@ DISCORD_PUBLIC_KEY=
 
 		"README.md": `# ${name}
 
-A Discord bot built with [Nubis](https://github.com/Eytak-Technologies/nubis).
+A Discord bot built with [Nubis](https://eytak.com/nubis). Docs: https://eytak.com/nubis/docs
 
 ## Getting started
 

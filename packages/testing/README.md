@@ -1,6 +1,6 @@
 # @nubisjs/testing
 
-Test [Nubis](https://github.com/Eytak-Technologies/nubis) bots without Discord. Also available as `nubis/testing`.
+Test [Nubis](https://eytak.com/nubis) bots without Discord. Also available as `nubis/testing`.
 
 ```ts
 import { fake, testCommand } from "nubis/testing";
