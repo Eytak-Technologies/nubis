@@ -3,8 +3,15 @@ import {
 	type APIApplicationCommandOption,
 	ApplicationCommandOptionType,
 	ApplicationCommandType,
+	ApplicationIntegrationType,
+	InteractionContextType,
 	type RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from "discord-api-types/v10";
+import type {
+	CommandContextName,
+	IntegrationTypeName,
+	TopLevelSettings,
+} from "./command";
 import { NubisError } from "./errors";
 import { assertValidDescription, assertValidName } from "./names";
 import type { OptionDefinition, OptionKind } from "./option";
@@ -30,6 +37,109 @@ const OPTION_TYPES = {
 const MAX_OPTIONS = 25;
 const slash = (path: readonly string[]) => `/${path.join(" ")}`;
 
+// Discord's limits for options.
+const MAX_CHOICES = 25;
+const MAX_CHOICE_NAME = 100;
+const MAX_STRING_CHOICE = 100;
+const MAX_TEXT_LENGTH = 6000;
+
+function optionDetails(
+	name: string,
+	option: OptionDefinition,
+	where: string,
+): Record<string, unknown> {
+	const at = `${where} option "${name}"`;
+	const {
+		choices,
+		autocomplete,
+		minLength,
+		maxLength,
+		minValue,
+		maxValue,
+		channelTypes,
+	} = option.config;
+	const details: Record<string, unknown> = {};
+	const isNumber = option.kind === "integer" || option.kind === "number";
+
+	if (choices !== undefined) {
+		if (autocomplete) {
+			throw new NubisError(`${at}: use choices or autocomplete, not both.`);
+		}
+		if (choices.length < 1 || choices.length > MAX_CHOICES) {
+			throw new NubisError(
+				`${at}: needs 1-${MAX_CHOICES} choices (got ${choices.length}).`,
+			);
+		}
+		for (const choice of choices) {
+			if (choice.name.length < 1 || choice.name.length > MAX_CHOICE_NAME) {
+				throw new NubisError(
+					`${at}: choice names must be 1-${MAX_CHOICE_NAME} characters.`,
+				);
+			}
+			if (
+				typeof choice.value === "string" &&
+				choice.value.length > MAX_STRING_CHOICE
+			) {
+				throw new NubisError(
+					`${at}: choice values must be at most ${MAX_STRING_CHOICE} characters.`,
+				);
+			}
+			if (option.kind === "integer" && !Number.isInteger(choice.value)) {
+				throw new NubisError(`${at}: integer choices must be whole numbers.`);
+			}
+		}
+		details.choices = choices.map(({ name: label, value }) => ({
+			name: label,
+			value,
+		}));
+	}
+	if (autocomplete) details.autocomplete = true;
+
+	if (minLength !== undefined || maxLength !== undefined) {
+		if (
+			(minLength ?? 0) < 0 ||
+			(maxLength ?? 1) < 1 ||
+			(maxLength ?? 0) > MAX_TEXT_LENGTH ||
+			(minLength ?? 0) > MAX_TEXT_LENGTH
+		) {
+			throw new NubisError(
+				`${at}: lengths must be 0-${MAX_TEXT_LENGTH} (maxLength at least 1).`,
+			);
+		}
+		if (
+			minLength !== undefined &&
+			maxLength !== undefined &&
+			minLength > maxLength
+		) {
+			throw new NubisError(`${at}: minLength is larger than maxLength.`);
+		}
+		if (minLength !== undefined) details.min_length = minLength;
+		if (maxLength !== undefined) details.max_length = maxLength;
+	}
+
+	if (isNumber && (minValue !== undefined || maxValue !== undefined)) {
+		if (
+			minValue !== undefined &&
+			maxValue !== undefined &&
+			minValue > maxValue
+		) {
+			throw new NubisError(`${at}: minValue is larger than maxValue.`);
+		}
+		if (minValue !== undefined) details.min_value = minValue;
+		if (maxValue !== undefined) details.max_value = maxValue;
+	}
+
+	if (channelTypes !== undefined) {
+		if (channelTypes.length === 0) {
+			throw new NubisError(
+				`${at}: channelTypes needs at least one type; leave it out to allow all.`,
+			);
+		}
+		details.channel_types = [...channelTypes];
+	}
+	return details;
+}
+
 function serializeOption(
 	name: string,
 	option: OptionDefinition,
@@ -44,6 +154,7 @@ function serializeOption(
 		name,
 		description,
 		required: option.required,
+		...optionDetails(name, option, where),
 	} as APIApplicationCommandBasicOption;
 }
 
@@ -93,6 +204,41 @@ function serializeChild(node: CommandNode): APIApplicationCommandOption {
 	};
 }
 
+const CONTEXTS = {
+	guild: InteractionContextType.Guild,
+	"bot-dm": InteractionContextType.BotDM,
+	"private-channel": InteractionContextType.PrivateChannel,
+} as const satisfies Record<CommandContextName, InteractionContextType>;
+
+const INTEGRATION_TYPES = {
+	guild: ApplicationIntegrationType.GuildInstall,
+	user: ApplicationIntegrationType.UserInstall,
+} as const satisfies Record<IntegrationTypeName, ApplicationIntegrationType>;
+
+/** Top-level settings shared by commands and folders. */
+function topLevelFields(settings: TopLevelSettings): Record<string, unknown> {
+	return {
+		...permissionsField(settings.defaultMemberPermissions),
+		...(settings.contexts
+			? { contexts: settings.contexts.map((name) => CONTEXTS[name]) }
+			: {}),
+		...(settings.integrationTypes
+			? {
+					integration_types: settings.integrationTypes.map(
+						(name) => INTEGRATION_TYPES[name],
+					),
+				}
+			: {}),
+		...(settings.nsfw ? { nsfw: true } : {}),
+	};
+}
+
+const hasTopLevel = (settings: TopLevelSettings) =>
+	settings.defaultMemberPermissions !== undefined ||
+	settings.contexts !== undefined ||
+	settings.integrationTypes !== undefined ||
+	settings.nsfw !== undefined;
+
 const permissionsField = (permissions: readonly bigint[] | undefined) =>
 	permissions === undefined
 		? {}
@@ -111,16 +257,16 @@ const folderDescription = (node: CommandParent) => {
 // Discord only reads default_member_permissions on top-level commands.
 function assertNoNestedPermissions(node: CommandNode): void {
 	if (node.type === "command") {
-		if (node.path.length > 1 && node.definition.defaultMemberPermissions) {
+		if (node.path.length > 1 && hasTopLevel(node.definition)) {
 			throw new NubisError(
-				`${slash(node.path)}: defaultMemberPermissions only works on top-level commands. Set it on the commands/${node.path[0]} folder instead.`,
+				`${slash(node.path)}: defaultMemberPermissions, contexts, integrationTypes and nsfw only work on top-level commands. Set them on the commands/${node.path[0]} folder instead.`,
 			);
 		}
 		return;
 	}
-	if (node.path.length > 1 && node.folder?.defaultMemberPermissions) {
+	if (node.path.length > 1 && node.folder && hasTopLevel(node.folder)) {
 		throw new NubisError(
-			`commands/${node.path.join("/")}: defaultMemberPermissions only works on top-level folders.`,
+			`commands/${node.path.join("/")}: defaultMemberPermissions, contexts, integrationTypes and nsfw only work on top-level folders.`,
 		);
 	}
 	for (const child of node.children.values()) assertNoNestedPermissions(child);
@@ -137,7 +283,7 @@ export function toCommandPayloads(tree: CommandTree): CommandPayload[] {
 				name: node.name,
 				description: node.definition.description,
 				options: serializeLeafOptions(node),
-				...permissionsField(node.definition.defaultMemberPermissions),
+				...topLevelFields(node.definition),
 			};
 		}
 		return {
@@ -145,7 +291,7 @@ export function toCommandPayloads(tree: CommandTree): CommandPayload[] {
 			name: node.name,
 			description: folderDescription(node),
 			options: [...node.children.values()].map(serializeChild),
-			...permissionsField(node.folder?.defaultMemberPermissions),
+			...topLevelFields(node.folder ?? {}),
 		};
 	});
 }

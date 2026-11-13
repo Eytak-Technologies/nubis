@@ -1,4 +1,5 @@
 import {
+	type APIApplicationCommandAutocompleteInteraction,
 	type APIApplicationCommandInteractionDataOption,
 	type APIChatInputApplicationCommandInteraction,
 	type APIInteractionDataResolved,
@@ -212,4 +213,21 @@ export function modalSubmit(
 			})),
 		},
 	} as unknown as APIModalSubmitInteraction;
+}
+
+/** An autocomplete interaction: `options` as Discord sends them, one marked `focused`. */
+export function autocomplete(
+	name: string,
+	options: APIApplicationCommandInteractionDataOption[],
+	actor?: Actor,
+): APIApplicationCommandAutocompleteInteraction {
+	return {
+		...actorFields(actor),
+		id: "1",
+		application_id: "2",
+		type: InteractionType.ApplicationCommandAutocomplete,
+		token: "test-token",
+		version: 1,
+		data: { id: "3", type: ApplicationCommandType.ChatInput, name, options },
+	} as unknown as APIApplicationCommandAutocompleteInteraction;
 }

@@ -20,18 +20,59 @@ type Comparable = {
 	description?: string;
 	required?: boolean;
 	options?: readonly Comparable[];
+	choices?: readonly { name: string; value: string | number }[];
+	autocomplete?: boolean;
+	min_value?: number;
+	max_value?: number;
+	min_length?: number;
+	max_length?: number;
+	channel_types?: readonly number[];
+	default_member_permissions?: string | null;
+	contexts?: readonly number[] | null;
+	integration_types?: readonly number[];
+	nsfw?: boolean;
 };
+
+const sorted = (values: readonly number[] | null | undefined) =>
+	values ? [...values].sort((a, b) => a - b) : null;
 
 // Only the fields Nubis writes take part in the comparison, with Discord's
 // defaults filled in, so values Discord adds on its side (ids, versions,
 // localizations, `required: false`) don't look like changes.
+function normalizeOption(option: Comparable): unknown {
+	return {
+		type: option.type,
+		name: option.name,
+		description: option.description ?? "",
+		required: option.required ?? false,
+		choices:
+			option.choices?.map(({ name, value }) => ({ name, value })) ?? null,
+		autocomplete: option.autocomplete ?? false,
+		min_value: option.min_value ?? null,
+		max_value: option.max_value ?? null,
+		min_length: option.min_length ?? null,
+		max_length: option.max_length ?? null,
+		channel_types: sorted(option.channel_types),
+		options: (option.options ?? []).map(normalizeOption),
+	};
+}
+
 function normalize(command: Comparable): unknown {
+	const integrationTypes = sorted(command.integration_types);
 	return {
 		type: command.type ?? ApplicationCommandType.ChatInput,
 		name: command.name,
 		description: command.description ?? "",
-		required: command.required ?? false,
-		options: (command.options ?? []).map(normalize),
+		default_member_permissions: command.default_member_permissions ?? null,
+		contexts: sorted(command.contexts),
+		// Discord reports guild install for commands that never set this.
+		integration_types:
+			integrationTypes === null ||
+			(integrationTypes.length === 1 && integrationTypes[0] === 0)
+				? null
+				: integrationTypes,
+		nsfw: command.nsfw ?? false,
+		options: (command.options ?? []).map(normalizeOption),
 	};
 }
 

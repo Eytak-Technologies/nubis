@@ -412,7 +412,7 @@ describe("folder settings and Discord permissions", () => {
 			toCommandPayloads(
 				buildCommandTree([{ path: ["mod", "ban"], definition: banned }]),
 			),
-		).toThrow(/Set it on the commands\/mod folder instead/);
+		).toThrow(/Set them on the commands\/mod folder instead/);
 	});
 
 	test("folder settings need a folder", () => {

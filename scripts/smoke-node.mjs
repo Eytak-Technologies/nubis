@@ -137,6 +137,40 @@ const banResult = await nubis.dispatch(
 assert.equal(banResult.status, "denied");
 assert.deepEqual(denied, ["You don't have permission to do that."]);
 
+// Autocomplete: suggestions answered with type 8.
+const searchTree = nubis.buildCommandTree([
+	{
+		path: ["search"],
+		definition: nubis.command({
+			description: "Search",
+			options: {
+				q: nubis.option.string({
+					autocomplete: ({ value }) => [{ name: value, value }],
+				}),
+			},
+			run: () => {},
+		}),
+	},
+]);
+let suggested;
+await nubis.dispatchAutocomplete(
+	searchTree,
+	{
+		type: 4,
+		user: { id: "u1" },
+		data: {
+			name: "search",
+			type: 1,
+			options: [{ type: 3, name: "q", value: "abc", focused: true }],
+		},
+	},
+	{ respond: async (response) => (suggested = response) },
+);
+assert.deepEqual(suggested, {
+	type: 8,
+	data: { choices: [{ name: "abc", value: "abc" }] },
+});
+
 const { version } = JSON.parse(
 	readFileSync(new URL("../packages/nubis/package.json", import.meta.url)),
 );

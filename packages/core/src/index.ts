@@ -1,5 +1,10 @@
+export type { AutocompleteOptions, AutocompleteResult } from "./autocomplete";
+export { dispatchAutocomplete } from "./autocomplete";
 export type {
 	CommandConfig,
+	CommandContextName,
+	IntegrationTypeName,
+	TopLevelSettings,
 	CommandContext,
 	CommandDefinition,
 } from "./command";
@@ -72,14 +77,22 @@ export type {
 } from "./modal";
 export { modal, textInput } from "./modal";
 export type {
+	AnyOptionConfig,
+	AutocompleteContext,
+	AutocompleteHandler,
+	BasicOptionConfig,
+	ChannelOptionConfig,
+	Choice,
 	IsRequired,
-	OptionConfig,
+	NumberOptionConfig,
 	OptionDefinition,
 	OptionKind,
 	OptionMap,
 	OptionValue,
 	OptionValues,
 	ResolvedOptions,
+	StringOptionConfig,
+	ValueOf,
 } from "./option";
 export { option } from "./option";
 export type {

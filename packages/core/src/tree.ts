@@ -1,4 +1,4 @@
-import type { CommandDefinition } from "./command";
+import type { CommandDefinition, TopLevelSettings } from "./command";
 import { NubisError } from "./errors";
 import type { Guard } from "./guard";
 import type { Middleware } from "./middleware";
@@ -28,8 +28,11 @@ export interface CommandFolder {
 	readonly description?: string;
 	readonly guards?: readonly Guard[];
 	readonly middleware?: readonly Middleware[];
-	/** Top-level folders only: see CommandConfig.defaultMemberPermissions. */
+	/** Top-level folders only: see CommandConfig. */
 	readonly defaultMemberPermissions?: readonly bigint[];
+	readonly contexts?: TopLevelSettings["contexts"];
+	readonly integrationTypes?: TopLevelSettings["integrationTypes"];
+	readonly nsfw?: boolean;
 }
 
 export interface CommandParent {

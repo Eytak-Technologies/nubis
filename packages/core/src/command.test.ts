@@ -57,11 +57,7 @@ describe("command", () => {
 			},
 		});
 
-		expect(ban.options.days).toEqual({
-			kind: "integer",
-			required: true,
-			description: undefined,
-		});
+		expect(ban.options.days).toMatchObject({ kind: "integer", required: true });
 		expect(replies).toEqual(["banned for 7 days"]);
 	});
 });

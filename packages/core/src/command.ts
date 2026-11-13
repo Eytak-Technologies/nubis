@@ -5,6 +5,19 @@ import type { Middleware } from "./middleware";
 import type { OptionMap, ResolvedOptions } from "./option";
 import type { ReplyInput } from "./reply";
 
+/** Where a command can be used: servers, the bot's DMs, or group DMs and other users' DMs. */
+export type CommandContextName = "guild" | "bot-dm" | "private-channel";
+/** How the app is installed: to a server, or to a user's account. */
+export type IntegrationTypeName = "guild" | "user";
+
+/** Settings Discord only reads on top-level commands; folders can set them too. */
+export interface TopLevelSettings {
+	readonly defaultMemberPermissions?: readonly bigint[];
+	readonly contexts?: readonly CommandContextName[];
+	readonly integrationTypes?: readonly IntegrationTypeName[];
+	readonly nsfw?: boolean;
+}
+
 export interface CommandContext<T extends OptionMap> {
 	readonly options: ResolvedOptions<T>;
 	/** The raw interaction from Discord, for anything Nubis doesn't cover yet. */
@@ -38,6 +51,12 @@ export interface CommandConfig<T extends OptionMap> {
 	 * Top-level commands only; for subcommands, set it on the folder.
 	 */
 	readonly defaultMemberPermissions?: readonly bigint[];
+	/** Top-level only. Where the command can be used. Defaults to everywhere it's installed. */
+	readonly contexts?: readonly CommandContextName[];
+	/** Top-level only. "user" makes it usable when installed to a user's account. */
+	readonly integrationTypes?: readonly IntegrationTypeName[];
+	/** Top-level only. Age-restricted: only shown in age-restricted channels. */
+	readonly nsfw?: boolean;
 	run(context: CommandContext<T>): unknown;
 }
 

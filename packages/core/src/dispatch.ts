@@ -58,7 +58,7 @@ export async function answerError(lifecycle: Lifecycle): Promise<void> {
 	}
 }
 
-interface Located {
+export interface Located {
 	readonly leaf: CommandLeaf | undefined;
 	/** Folders on the way to the leaf, outermost first. */
 	readonly parents: readonly CommandParent[];
@@ -66,15 +66,19 @@ interface Located {
 	readonly options: readonly APIApplicationCommandInteractionDataBasicOption[];
 }
 
-function locate(
+/** Finds the command an interaction's data points at, through subcommands and groups. */
+export function locate(
 	tree: CommandTree,
-	interaction: APIChatInputApplicationCommandInteraction,
+	data: {
+		readonly name: string;
+		readonly options?: readonly APIApplicationCommandInteractionDataOption[];
+	},
 ): Located {
-	const path = [interaction.data.name];
+	const path = [data.name];
 	const parents: CommandParent[] = [];
-	let node = tree.get(interaction.data.name);
+	let node = tree.get(data.name);
 	let options: readonly APIApplicationCommandInteractionDataOption[] =
-		interaction.data.options ?? [];
+		data.options ?? [];
 
 	while (node?.type === "parent") {
 		parents.push(node);
@@ -152,7 +156,12 @@ export async function dispatch(
 	transport: Transport,
 	options: DispatchOptions = {},
 ): Promise<DispatchResult> {
-	const { leaf, parents, path, options: given } = locate(tree, interaction);
+	const {
+		leaf,
+		parents,
+		path,
+		options: given,
+	} = locate(tree, interaction.data);
 	const lifecycle = createLifecycle(transport, {
 		kind: "command",
 		ephemeral: leaf?.definition.ephemeral,

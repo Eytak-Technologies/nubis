@@ -1,4 +1,5 @@
 import type {
+	APIApplicationCommandAutocompleteInteraction,
 	APIChatInputApplicationCommandInteraction,
 	APIInteractionGuildMember,
 	APIMessageComponentInteraction,
@@ -7,6 +8,7 @@ import type {
 } from "discord-api-types/v10";
 
 export type GuardedInteraction =
+	| APIApplicationCommandAutocompleteInteraction
 	| APIChatInputApplicationCommandInteraction
 	| APIMessageComponentInteraction
 	| APIModalSubmitInteraction;
