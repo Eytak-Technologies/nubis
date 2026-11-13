@@ -14,12 +14,13 @@ import {
 	type WithRuntime,
 	type ComponentRuntime,
 } from "./component";
-import { assertValidComponentId, encodeCustomId } from "./custom-id";
+import { assertValidComponentId, renderCustomId } from "./custom-id";
 import { NubisError } from "./errors";
 import type { Guard } from "./guard";
 import type { Middleware } from "./middleware";
 import type { IsRequired } from "./option";
 import type { ReplyInput } from "./reply";
+import type { StateStore } from "./store";
 
 // ------------------------------------------------------------- text input
 
@@ -90,6 +91,8 @@ export interface ModalConfig<
 	/** Up to five fields. The keys become the field ids and the keys of `values`. */
 	readonly fields: F;
 	readonly state?: S;
+	/** Keeps state outside the custom_id; see button's `store`. */
+	readonly store?: StateStore;
 	readonly guards?: readonly Guard[];
 	readonly middleware?: readonly Middleware[];
 	onSubmit(context: ModalContext<ComponentState<S>, F>): unknown;
@@ -236,7 +239,7 @@ export function modal<
 		const title = overrides?.title ?? config.title;
 		checkLength(title, MAX_TITLE, `Modal "${config.id}": the title`);
 		return {
-			custom_id: encodeCustomId(config.id, state),
+			custom_id: renderCustomId(config.id, state, config.store),
 			title,
 			components: Object.entries(config.fields).map(([name, field]) =>
 				renderField(name, field, overrides?.values?.[name]),
@@ -248,6 +251,7 @@ export function modal<
 		kind: "modal",
 		id: config.id,
 		schema: config.state,
+		store: config.store,
 		guards: config.guards ?? [],
 		middleware: config.middleware ?? [],
 		async handle(base, interaction) {

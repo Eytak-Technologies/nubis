@@ -5,6 +5,7 @@ import {
 	InteractionResponseType,
 } from "discord-api-types/v10";
 import { NubisError } from "./errors";
+import { settleStateWrites } from "./store";
 import {
 	type ReplyInput,
 	type ReplyMessage,
@@ -95,7 +96,9 @@ export function createLifecycle(
 	// can't both answer, and calls made without await still run in order.
 	let queue: Promise<unknown> = Promise.resolve();
 	const serial = <T>(work: () => Promise<T>): Promise<T> => {
-		const next = queue.then(work);
+		// Component state written to a store must be saved before the message
+		// carrying the component reaches Discord, or a fast click could miss it.
+		const next = queue.then(settleStateWrites).then(work);
 		queue = next.catch(() => {});
 		return next;
 	};

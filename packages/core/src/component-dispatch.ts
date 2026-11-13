@@ -101,9 +101,19 @@ async function route(
 			return { status: "denied", id: runtime.id, message: denial.message };
 		}
 
-		let state: unknown;
+		let raw: unknown;
+		if ("key" in decoded) {
+			// State kept in a store: a missing key means it expired or the store was reset.
+			raw = runtime.store ? await runtime.store.get(decoded.key) : undefined;
+			if (raw === undefined)
+				return stale(runtime.id, "stored state expired or missing");
+		} else {
+			raw = decoded.state;
+		}
+
+		let state: unknown = runtime.schema ? undefined : raw;
 		if (runtime.schema) {
-			const result = await runtime.schema["~standard"].validate(decoded.state);
+			const result = await runtime.schema["~standard"].validate(raw);
 			if (result.issues) {
 				return stale(
 					runtime.id,

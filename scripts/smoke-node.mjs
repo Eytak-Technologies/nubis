@@ -217,4 +217,33 @@ const eventResult = await nubis.dispatchEvent(events, "GUILD_MEMBER_ADD", {
 assert.equal(eventResult.handled, 1);
 assert.deepEqual(joined, ["u9"]);
 
+// State stores use Web Crypto for keys: present on every supported Node.
+const picked = [];
+const store = nubis.memoryStore();
+const pickUser = nubis.userSelect({
+	id: "pick-user",
+	state: nubis.stateOf(),
+	store,
+	onSelect: ({ users, state }) => picked.push(`${users[0].id}:${state.note}`),
+});
+const renderedSelect = pickUser({ note: "x".repeat(150) });
+assert.match(renderedSelect.custom_id, /^pick-user~\$[\w-]{16}$/);
+const selected = await nubis.dispatchComponent(
+	nubis.createComponentRegistry([pickUser]),
+	{
+		type: 3,
+		user: { id: "u1" },
+		data: {
+			custom_id: renderedSelect.custom_id,
+			component_type: 5,
+			values: ["u2"],
+			resolved: { users: { u2: { id: "u2" } } },
+		},
+	},
+	transportFor([]),
+	{ autoDeferMs: false },
+);
+assert.equal(selected.status, "handled");
+assert.deepEqual(picked, [`u2:${"x".repeat(150)}`]);
+
 console.log(`Node ${process.version}: smoke test passed`);
