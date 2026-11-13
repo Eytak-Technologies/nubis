@@ -53,9 +53,20 @@ describe("planSync", () => {
 		expect(plan.unchanged).toEqual(["ping"]);
 	});
 
-	test("leaves context menu commands alone", () => {
+	test("manages context menus too, keyed by type and name", () => {
 		const menu = remote("9", local("Report"), ApplicationCommandType.Message);
-		const plan = planSync([], [menu]);
-		expect(plan.remove).toEqual([]);
+		const sameNameSlash = remote("8", local("report"));
+		const plan = planSync([local("report")], [menu, sameNameSlash]);
+		expect(plan.unchanged).toEqual(["report"]);
+		expect(plan.remove).toEqual([{ id: "9", name: "Report" }]);
+	});
+
+	test("leaves activity entry point commands alone", () => {
+		const entry = remote(
+			"7",
+			local("launch"),
+			ApplicationCommandType.PrimaryEntryPoint,
+		);
+		expect(planSync([], [entry]).remove).toEqual([]);
 	});
 });

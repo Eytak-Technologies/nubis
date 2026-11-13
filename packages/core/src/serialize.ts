@@ -216,7 +216,9 @@ const INTEGRATION_TYPES = {
 } as const satisfies Record<IntegrationTypeName, ApplicationIntegrationType>;
 
 /** Top-level settings shared by commands and folders. */
-function topLevelFields(settings: TopLevelSettings): Record<string, unknown> {
+export function topLevelFields(
+	settings: TopLevelSettings,
+): Record<string, unknown> {
 	return {
 		...permissionsField(settings.defaultMemberPermissions),
 		...(settings.contexts
@@ -272,8 +274,16 @@ function assertNoNestedPermissions(node: CommandNode): void {
 	for (const child of node.children.values()) assertNoNestedPermissions(child);
 }
 
+// Discord's limit on top-level slash commands per app.
+const MAX_COMMANDS = 100;
+
 /** The JSON body Discord's "bulk overwrite application commands" endpoint takes. */
 export function toCommandPayloads(tree: CommandTree): CommandPayload[] {
+	if (tree.size > MAX_COMMANDS) {
+		throw new NubisError(
+			`An app can have at most ${MAX_COMMANDS} top-level slash commands (got ${tree.size}). Group some into folders: subcommands don't count.`,
+		);
+	}
 	return [...tree.values()].map((node): CommandPayload => {
 		assertNoNestedPermissions(node);
 		if (node.type === "command") {

@@ -2,13 +2,17 @@ import {
 	type APIApplicationCommand,
 	ApplicationCommandType,
 } from "discord-api-types/v10";
+import type { MenuPayload } from "./menu";
 import type { CommandPayload } from "./serialize";
 
+/** Anything Nubis registers: slash commands and context menu commands. */
+export type AnyCommandPayload = CommandPayload | MenuPayload;
+
 export interface SyncPlan {
-	readonly create: readonly CommandPayload[];
+	readonly create: readonly AnyCommandPayload[];
 	readonly update: readonly {
 		readonly id: string;
-		readonly payload: CommandPayload;
+		readonly payload: AnyCommandPayload;
 	}[];
 	readonly remove: readonly { readonly id: string; readonly name: string }[];
 	readonly unchanged: readonly string[];
@@ -79,36 +83,43 @@ function normalize(command: Comparable): unknown {
 const same = (a: Comparable, b: Comparable) =>
 	JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
 
+const MANAGED_TYPES: ReadonlySet<number> = new Set([
+	ApplicationCommandType.ChatInput,
+	ApplicationCommandType.User,
+	ApplicationCommandType.Message,
+]);
+
+// A slash command and a context menu can share a name, so type is part of the key.
+const keyOf = (command: { type?: number; name: string }) =>
+	`${command.type ?? ApplicationCommandType.ChatInput}:${command.name}`;
+
 /**
- * Works out which slash commands to create, update and delete so Discord
- * matches the bot's code. Context menu commands on Discord are left alone.
+ * Works out which commands to create, update and delete so Discord matches
+ * the bot's code: slash commands and context menu commands. Activity entry
+ * point commands are left alone, since Discord manages those.
  */
 export function planSync(
-	local: readonly CommandPayload[],
+	local: readonly AnyCommandPayload[],
 	remote: readonly APIApplicationCommand[],
 ): SyncPlan {
-	const remoteChatInput = remote.filter(
-		(command) => command.type === ApplicationCommandType.ChatInput,
-	);
-	const byName = new Map(
-		remoteChatInput.map((command) => [command.name, command]),
-	);
-	const localNames = new Set(local.map((command) => command.name));
+	const managed = remote.filter((command) => MANAGED_TYPES.has(command.type));
+	const byKey = new Map(managed.map((command) => [keyOf(command), command]));
+	const localKeys = new Set(local.map(keyOf));
 
-	const create: CommandPayload[] = [];
-	const update: { id: string; payload: CommandPayload }[] = [];
+	const create: AnyCommandPayload[] = [];
+	const update: { id: string; payload: AnyCommandPayload }[] = [];
 	const unchanged: string[] = [];
 
 	for (const payload of local) {
-		const existing = byName.get(payload.name);
+		const existing = byKey.get(keyOf(payload));
 		if (!existing) create.push(payload);
-		else if (same(payload, existing as Comparable))
+		else if (same(payload as Comparable, existing as Comparable))
 			unchanged.push(payload.name);
 		else update.push({ id: existing.id, payload });
 	}
 
-	const remove = remoteChatInput
-		.filter((command) => !localNames.has(command.name))
+	const remove = managed
+		.filter((command) => !localKeys.has(keyOf(command)))
 		.map(({ id, name }) => ({ id, name }));
 
 	return { create, update, remove, unchanged };

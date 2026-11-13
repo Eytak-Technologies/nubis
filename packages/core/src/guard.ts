@@ -1,6 +1,7 @@
 import type {
 	APIApplicationCommandAutocompleteInteraction,
 	APIChatInputApplicationCommandInteraction,
+	APIContextMenuInteraction,
 	APIInteractionGuildMember,
 	APIMessageComponentInteraction,
 	APIModalSubmitInteraction,
@@ -10,6 +11,7 @@ import type {
 export type GuardedInteraction =
 	| APIApplicationCommandAutocompleteInteraction
 	| APIChatInputApplicationCommandInteraction
+	| APIContextMenuInteraction
 	| APIMessageComponentInteraction
 	| APIModalSubmitInteraction;
 

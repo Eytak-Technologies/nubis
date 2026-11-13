@@ -47,6 +47,22 @@ export type {
 export { createLifecycle, DEFAULT_AUTO_DEFER_MS } from "./lifecycle";
 export { NubisError } from "./errors";
 export type {
+	AnyEventDefinition,
+	CamelCase,
+	EventContext,
+	EventDefinition,
+	EventDispatchResult,
+	EventName,
+	EventPayloads,
+	EventRegistry,
+} from "./events";
+export {
+	createEventRegistry,
+	dispatchEvent,
+	event,
+	toEventName,
+} from "./events";
+export type {
 	CooldownOptions,
 	Denial,
 	Guard,
@@ -65,6 +81,21 @@ export {
 } from "./guard";
 export type { Middleware, MiddlewareContext } from "./middleware";
 export { middleware } from "./middleware";
+export type {
+	MenuDefinition,
+	MenuDispatchResult,
+	MenuPayload,
+	MessageMenuConfig,
+	MessageMenuContext,
+	UserMenuConfig,
+	UserMenuContext,
+} from "./menu";
+export {
+	dispatchMenu,
+	messageCommand,
+	toMenuPayloads,
+	userCommand,
+} from "./menu";
 export type {
 	FieldMap,
 	ModalConfig,
@@ -117,7 +148,7 @@ export type {
 export { stateOf } from "./schema";
 export type { CommandPayload } from "./serialize";
 export { toCommandPayloads } from "./serialize";
-export type { SyncPlan } from "./sync";
+export type { AnyCommandPayload, SyncPlan } from "./sync";
 export { planSync } from "./sync";
 export type {
 	CommandFile,

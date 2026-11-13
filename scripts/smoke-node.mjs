@@ -183,4 +183,38 @@ assert.match(
 	/ticket-bot/,
 );
 
+// Context menus and events.
+const menuReplies = [];
+const reportMenu = nubis.messageCommand({
+	name: "Report message",
+	run: ({ target, reply }) => reply(`reported ${target.id}`),
+});
+await nubis.dispatchMenu(
+	[reportMenu],
+	{
+		type: 2,
+		user: { id: "u1" },
+		data: {
+			type: 3,
+			name: "Report message",
+			target_id: "m1",
+			resolved: { messages: { m1: { id: "m1" } } },
+		},
+	},
+	transportFor(menuReplies),
+	{ autoDeferMs: false },
+);
+assert.deepEqual(menuReplies, ["reported m1"]);
+assert.equal(nubis.toMenuPayloads([reportMenu])[0].type, 3);
+
+const joined = [];
+const events = nubis.createEventRegistry([
+	nubis.event("guildMemberAdd", (member) => joined.push(member.user.id)),
+]);
+const eventResult = await nubis.dispatchEvent(events, "GUILD_MEMBER_ADD", {
+	user: { id: "u9" },
+});
+assert.equal(eventResult.handled, 1);
+assert.deepEqual(joined, ["u9"]);
+
 console.log(`Node ${process.version}: smoke test passed`);
