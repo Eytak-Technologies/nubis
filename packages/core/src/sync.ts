@@ -86,8 +86,20 @@ function normalizeOption(option: Comparable): unknown {
 	};
 }
 
+// A command that doesn't say where it can be installed gets the app's own
+// install types: [0] for a guild-only app, [0, 1] when the app is also
+// installable to users. Either is "unset" from the code's side. A command
+// that does say gets compared as written.
+const APP_DEFAULTS = new Set(["[0]", "[0,1]"]);
+
+function sameIntegrationTypes(local: Comparable, remote: Comparable): boolean {
+	const remoteTypes = JSON.stringify(sorted(remote.integration_types) ?? [0]);
+	if (local.integration_types === undefined)
+		return APP_DEFAULTS.has(remoteTypes);
+	return JSON.stringify(sorted(local.integration_types)) === remoteTypes;
+}
+
 function normalize(command: Comparable): unknown {
-	const integrationTypes = sorted(command.integration_types);
 	return {
 		type: command.type ?? ApplicationCommandType.ChatInput,
 		name: command.name,
@@ -96,19 +108,14 @@ function normalize(command: Comparable): unknown {
 		description_localizations: localizations(command.description_localizations),
 		default_member_permissions: command.default_member_permissions ?? null,
 		contexts: sorted(command.contexts),
-		// Discord reports guild install for commands that never set this.
-		integration_types:
-			integrationTypes === null ||
-			(integrationTypes.length === 1 && integrationTypes[0] === 0)
-				? null
-				: integrationTypes,
 		nsfw: command.nsfw ?? false,
 		options: (command.options ?? []).map(normalizeOption),
 	};
 }
 
-const same = (a: Comparable, b: Comparable) =>
-	JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
+const same = (local: Comparable, remote: Comparable) =>
+	sameIntegrationTypes(local, remote) &&
+	JSON.stringify(normalize(local)) === JSON.stringify(normalize(remote));
 
 const MANAGED_TYPES: ReadonlySet<number> = new Set([
 	ApplicationCommandType.ChatInput,

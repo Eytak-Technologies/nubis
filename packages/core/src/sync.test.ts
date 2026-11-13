@@ -61,6 +61,32 @@ describe("planSync", () => {
 		expect(plan.remove).toEqual([{ id: "9", name: "Report" }]);
 	});
 
+	test("install types: unset matches either app default, set is compared as written", () => {
+		const withTypes = (types: number[] | undefined) => ({
+			...remote("2", local("ping")),
+			integration_types: types,
+		});
+		// An app installable to users reports [0, 1] for commands that never set it.
+		expect(planSync([local("ping")], [withTypes([0, 1])]).unchanged).toEqual([
+			"ping",
+		]);
+		expect(planSync([local("ping")], [withTypes([0])]).unchanged).toEqual([
+			"ping",
+		]);
+		expect(planSync([local("ping")], [withTypes(undefined)]).unchanged).toEqual(
+			["ping"],
+		);
+		// Set to user-only on Discord but unset in code: the code wins.
+		expect(planSync([local("ping")], [withTypes([1])]).update).toHaveLength(1);
+
+		const guildAndUser = { ...local("ping"), integration_types: [0, 1] };
+		expect(planSync([guildAndUser], [withTypes([1, 0])]).unchanged).toEqual([
+			"ping",
+		]);
+		// Asked for user installs, Discord still guild-only: an update.
+		expect(planSync([guildAndUser], [withTypes([0])]).update).toHaveLength(1);
+	});
+
 	test("leaves activity entry point commands alone", () => {
 		const entry = remote(
 			"7",
