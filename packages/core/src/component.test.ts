@@ -245,9 +245,7 @@ describe("dispatchComponent", () => {
 	test("duplicate ids are a definition error", () => {
 		const a = button({ id: "same", label: "A", onClick: () => {} });
 		const b = button({ id: "same", label: "B", onClick: () => {} });
-		expect(() => createComponentRegistry([a, b])).toThrow(
-			/Two components use the id "same"/,
-		);
+		expect(() => createComponentRegistry([a, b])).toThrow(/use the id "same"/);
 	});
 });
 

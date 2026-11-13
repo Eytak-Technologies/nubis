@@ -1,4 +1,5 @@
 import type { APIChatInputApplicationCommandInteraction } from "discord-api-types/v10";
+import type { ModalData } from "./component";
 import type { OptionMap, ResolvedOptions } from "./option";
 import type { ReplyInput } from "./reply";
 
@@ -7,6 +8,8 @@ export interface CommandContext<T extends OptionMap> {
 	/** The raw interaction from Discord, for anything Nubis doesn't cover yet. */
 	readonly interaction: APIChatInputApplicationCommandInteraction;
 	reply(message: ReplyInput): Promise<void>;
+	/** Opens a modal. Must be the first response, so call it before reply(). */
+	showModal(modal: ModalData): Promise<void>;
 }
 
 export interface CommandConfig<T extends OptionMap> {

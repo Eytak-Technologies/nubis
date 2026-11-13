@@ -1,16 +1,22 @@
 import {
 	type APIButtonComponentWithCustomId,
 	type APIMessageComponentInteraction,
+	type APIModalInteractionResponseCallbackData,
+	type APIModalSubmitInteraction,
 	type APIStringSelectComponent,
 	ButtonStyle,
 	ComponentType,
+	InteractionType,
 } from "discord-api-types/v10";
 import { assertValidComponentId, encodeCustomId } from "./custom-id";
 import { NubisError } from "./errors";
 import type { ReplyInput } from "./reply";
 import type { SchemaInput, SchemaOutput, StandardSchemaV1 } from "./schema";
 
-type AnySchema = StandardSchemaV1<unknown, unknown>;
+export type AnySchema = StandardSchemaV1<unknown, unknown>;
+
+/** A rendered modal, ready for `showModal()`. */
+export type ModalData = APIModalInteractionResponseCallbackData;
 
 /** State inside handlers: the schema's output, or `undefined` without one. */
 export type ComponentState<S> = [S] extends [undefined]
@@ -18,7 +24,7 @@ export type ComponentState<S> = [S] extends [undefined]
 	: SchemaOutput<S>;
 
 /** Arguments for rendering: state first when the component has a schema. */
-type RenderArgs<S, O> = [S] extends [undefined]
+export type RenderArgs<S, O> = [S] extends [undefined]
 	? [overrides?: O]
 	: [state: SchemaInput<S>, overrides?: O];
 
@@ -30,25 +36,41 @@ export interface ComponentContext<State> {
 	reply(message: ReplyInput): Promise<void>;
 	/** Edits the message the component is on. */
 	update(message: ReplyInput): Promise<void>;
+	/** Opens a modal. Must be the first response, so call it before reply(). */
+	showModal(modal: ModalData): Promise<void>;
 }
 
-/** What dispatch needs from any component, whatever its state type. */
+/** The parts of a handler context that don't depend on the interaction type. */
+export interface HandlerBase {
+	readonly state: unknown;
+	reply(message: ReplyInput): Promise<void>;
+	update(message: ReplyInput): Promise<void>;
+	showModal(modal: ModalData): Promise<void>;
+}
+
+/** What dispatch needs from any component or modal, whatever its state type. */
 export interface ComponentRuntime {
-	readonly kind: "button" | "string-select";
+	readonly kind: "button" | "string-select" | "modal";
 	readonly id: string;
 	readonly schema: AnySchema | undefined;
-	/** Returns false when the interaction doesn't fit this component (stale message). */
+	/** Returns false when the interaction doesn't fit (a stale message or form). */
 	handle(
-		context: ComponentContext<unknown>,
-		interaction: APIMessageComponentInteraction,
+		base: HandlerBase,
+		interaction: APIMessageComponentInteraction | APIModalSubmitInteraction,
 	): Promise<boolean>;
 }
 
 export const RUNTIME = "~nubis";
 
-interface WithRuntime {
+export interface WithRuntime {
 	readonly id: string;
 	readonly [RUNTIME]: ComponentRuntime;
+}
+
+function isMessageComponent(
+	interaction: APIMessageComponentInteraction | APIModalSubmitInteraction,
+): interaction is APIMessageComponentInteraction {
+	return interaction.type === InteractionType.MessageComponent;
 }
 
 function checkId(id: string): void {
@@ -113,10 +135,17 @@ export function button<S extends AnySchema | undefined = undefined>(
 		kind: "button",
 		id: config.id,
 		schema: config.state,
-		async handle(context, interaction) {
-			if (interaction.data.component_type !== ComponentType.Button)
+		async handle(base, interaction) {
+			if (
+				!isMessageComponent(interaction) ||
+				interaction.data.component_type !== ComponentType.Button
+			) {
 				return false;
-			await config.onClick(context as ComponentContext<ComponentState<S>>);
+			}
+			await config.onClick({
+				...base,
+				interaction,
+			} as ComponentContext<ComponentState<S>>);
 			return true;
 		},
 	};
@@ -214,13 +243,14 @@ export function stringSelect<
 		kind: "string-select",
 		id: config.id,
 		schema: config.state,
-		async handle(context, interaction) {
+		async handle(base, interaction) {
+			if (!isMessageComponent(interaction)) return false;
 			const data = interaction.data;
 			if (data.component_type !== ComponentType.StringSelect) return false;
 			// Values outside the options mean the message predates a change to them.
 			if (!data.values.every((value) => allowed.has(value))) return false;
 			await config.onSelect({
-				...(context as ComponentContext<ComponentState<S>>),
+				...({ ...base, interaction } as ComponentContext<ComponentState<S>>),
 				values: data.values as O[number]["value"][],
 			});
 			return true;

@@ -32,6 +32,7 @@ const result = await nubis.dispatch(
 	{
 		reply: async (message) => replies.push(message.content),
 		update: async () => {},
+		showModal: async () => {},
 	},
 );
 assert.equal(result.status, "handled");
@@ -48,11 +49,39 @@ const confirm = nubis.button({
 const rendered = confirm({ userId: "42" });
 const clicked = await nubis.dispatchComponent(
 	nubis.createComponentRegistry([confirm]),
-	{ data: { custom_id: rendered.custom_id, component_type: 2 } },
-	{ reply: async () => {}, update: async () => {} },
+	{ type: 3, data: { custom_id: rendered.custom_id, component_type: 2 } },
+	{ reply: async () => {}, update: async () => {}, showModal: async () => {} },
 );
 assert.equal(clicked.status, "handled");
 assert.deepEqual(clicks, ["42"]);
+
+// Modals: render, then route a submission back with typed values.
+const reports = [];
+const report = nubis.modal({
+	id: "report",
+	title: "Report",
+	fields: { player: nubis.textInput({ label: "Player", required: true }) },
+	onSubmit: ({ values }) => reports.push(values.player),
+});
+assert.equal(report().components[0].component.custom_id, "player");
+const submittedReport = await nubis.dispatchModal(
+	nubis.createComponentRegistry([report]),
+	{
+		type: 5,
+		data: {
+			custom_id: "report",
+			components: [
+				{
+					type: 18,
+					component: { type: 4, custom_id: "player", value: "Steve" },
+				},
+			],
+		},
+	},
+	{ reply: async () => {}, update: async () => {}, showModal: async () => {} },
+);
+assert.equal(submittedReport.status, "handled");
+assert.deepEqual(reports, ["Steve"]);
 
 const { version } = JSON.parse(
 	readFileSync(new URL("../packages/nubis/package.json", import.meta.url)),

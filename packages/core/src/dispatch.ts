@@ -4,6 +4,7 @@ import {
 	type APIChatInputApplicationCommandInteraction,
 	ApplicationCommandOptionType,
 } from "discord-api-types/v10";
+import type { ModalData } from "./component";
 import { NubisError } from "./errors";
 import type { OptionMap, ResolvedOptions } from "./option";
 import { type ReplyMessage, toReplyMessage } from "./reply";
@@ -14,6 +15,8 @@ export interface Responder {
 	reply(message: ReplyMessage): Promise<void>;
 	/** Edits the message a component is on. Only valid for component interactions. */
 	update(message: ReplyMessage): Promise<void>;
+	/** Responds with a modal. Only valid as the first response. */
+	showModal(modal: ModalData): Promise<void>;
 }
 
 export type DispatchResult =
@@ -111,6 +114,7 @@ export async function dispatch(
 		options: resolveOptions(leaf, options, interaction),
 		interaction,
 		reply: (message) => responder.reply(toReplyMessage(message)),
+		showModal: (modal) => responder.showModal(modal),
 	});
 	return { status: "handled", path };
 }

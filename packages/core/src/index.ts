@@ -12,6 +12,7 @@ export type {
 	ComponentContext,
 	ComponentDefinition,
 	ComponentState,
+	ModalData,
 	SelectOption,
 	StringSelectConfig,
 	StringSelectDefinition,
@@ -25,11 +26,23 @@ export type {
 export {
 	createComponentRegistry,
 	dispatchComponent,
+	dispatchModal,
 	STALE_MESSAGE,
 } from "./component-dispatch";
 export type { DispatchResult, Responder } from "./dispatch";
 export { dispatch } from "./dispatch";
 export { NubisError } from "./errors";
+export type {
+	FieldMap,
+	ModalConfig,
+	ModalContext,
+	ModalDefinition,
+	ModalOverrides,
+	ModalValues,
+	TextInputConfig,
+	TextInputDefinition,
+} from "./modal";
+export { modal, textInput } from "./modal";
 export type {
 	IsRequired,
 	OptionConfig,
