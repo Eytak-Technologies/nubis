@@ -1,8 +1,18 @@
-interface OptionValues {
+import type {
+	APIInteractionDataResolvedChannel,
+	APIRole,
+	APIUser,
+} from "discord-api-types/v10";
+
+/** What each option kind resolves to inside `run()`. */
+export interface OptionValues {
 	string: string;
 	integer: number;
 	number: number;
 	boolean: boolean;
+	user: APIUser;
+	channel: APIInteractionDataResolvedChannel;
+	role: APIRole;
 }
 
 export type OptionKind = keyof OptionValues;
@@ -46,6 +56,9 @@ export const option = {
 	integer: define("integer"),
 	number: define("number"),
 	boolean: define("boolean"),
+	user: define("user"),
+	channel: define("channel"),
+	role: define("role"),
 };
 
 export type OptionValue<O> =

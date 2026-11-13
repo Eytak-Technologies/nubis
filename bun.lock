@@ -15,6 +15,9 @@
     "packages/core": {
       "name": "@nubisjs/core",
       "version": "0.0.0",
+      "dependencies": {
+        "discord-api-types": "^0.38.59",
+      },
     },
     "packages/create-nubis": {
       "name": "create-nubis",
@@ -118,6 +121,8 @@
     "bun-types": ["bun-types@1.4.4", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-yjrJh5oGX7mMPKGd19YXyIjmEuj4G4zNC30bs7PM9Az7NQ3ndF3j6hbeRdvJTRQEhJ/FYQwW0a2moweEi2hMxQ=="],
 
     "create-nubis": ["create-nubis@workspace:packages/create-nubis"],
+
+    "discord-api-types": ["discord-api-types@0.38.59", "", {}, "sha512-LZqh8gvWU/Bhl9qEVIRLeLJuaPGO7rA26IXLrXnMcjXxofh/h5UhP6notfCTj4X5kR1ogMvVgcrVYIuynY/CxQ=="],
 
     "nubis": ["nubis@workspace:packages/nubis"],
 

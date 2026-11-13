@@ -28,5 +28,8 @@
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
 		"lint": "biome lint ."
+	},
+	"dependencies": {
+		"discord-api-types": "^0.38.59"
 	}
 }

@@ -16,6 +16,24 @@ const ping = nubis.command({
 assert.equal(ping.kind, "command");
 assert.equal(ping.options.loud.kind, "boolean");
 
+// Routing, serialization and dispatch through the published entry point.
+const tree = nubis.buildCommandTree([{ path: ["ping"], definition: ping }]);
+const [payload] = nubis.toCommandPayloads(tree);
+assert.equal(payload.name, "ping");
+assert.equal(payload.options[0].type, 5); // Boolean
+const replies = [];
+const pong = nubis.command({
+	description: "Pong",
+	run: ({ reply }) => reply("pong"),
+});
+const result = await nubis.dispatch(
+	nubis.buildCommandTree([{ path: ["pong"], definition: pong }]),
+	{ data: { name: "pong", type: 1 } },
+	{ reply: async (content) => replies.push(content) },
+);
+assert.equal(result.status, "handled");
+assert.deepEqual(replies, ["pong"]);
+
 const { version } = JSON.parse(
 	readFileSync(new URL("../packages/nubis/package.json", import.meta.url)),
 );
