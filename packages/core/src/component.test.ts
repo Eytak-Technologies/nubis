@@ -9,13 +9,13 @@ import { componentInteraction, recorder } from "./__fixtures__/interactions";
 import {
 	button,
 	createComponentRegistry,
+	DEFAULT_ALLOWED_MENTIONS,
 	dispatchComponent,
 	NubisError,
 	STALE_MESSAGE,
 	stateOf,
 	stringSelect,
 	toActionRows,
-	DEFAULT_ALLOWED_MENTIONS,
 } from "./index";
 
 type Equal<A, B> =

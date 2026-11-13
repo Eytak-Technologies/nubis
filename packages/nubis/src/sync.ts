@@ -41,7 +41,11 @@ export async function syncCommands(options: SyncOptions): Promise<SyncResult> {
 		...toCommandPayloads(options.project.tree),
 		...toMenuPayloads(options.project.menus),
 	];
-	const remote = (await options.rest.get(route)) as APIApplicationCommand[];
+	// Without with_localizations Discord leaves the maps out, and a changed
+	// translation would never look like a change.
+	const remote = (await options.rest.get(route, {
+		query: new URLSearchParams({ with_localizations: "true" }),
+	})) as APIApplicationCommand[];
 	const plan = planSync(local, remote);
 	const scope = options.guildId ? "guild" : "global";
 

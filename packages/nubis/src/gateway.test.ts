@@ -199,6 +199,9 @@ describe("syncCommands", () => {
 				(c) => c.name,
 			),
 		).toEqual(["ping", "Profile"]);
+		// Asks for translations, or a changed one would never look like a change.
+		const query = (calls[0]?.options as { query?: URLSearchParams })?.query;
+		expect(query?.get("with_localizations")).toBe("true");
 	});
 
 	test("doesn't write when nothing changed, or on a dry run", async () => {

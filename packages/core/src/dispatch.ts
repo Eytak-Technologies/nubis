@@ -7,13 +7,13 @@ import {
 import type { NubisApi } from "./api";
 import { type ErrorHandler, NubisError, reportError } from "./errors";
 import { type Guard, guardContext, runGuards } from "./guard";
-import { type Middleware, runWithMiddleware } from "./middleware";
 import {
 	createLifecycle,
 	type Lifecycle,
 	type Scheduler,
 	type Transport,
 } from "./lifecycle";
+import { type Middleware, runWithMiddleware } from "./middleware";
 import type { OptionMap, ResolvedOptions } from "./option";
 import type { CommandLeaf, CommandParent, CommandTree } from "./tree";
 

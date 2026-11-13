@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { InteractionResponseType as R } from "discord-api-types/v10";
+import {
+	ComponentType,
+	InteractionResponseType as R,
+} from "discord-api-types/v10";
 import {
 	chatInput,
 	componentInteraction,
@@ -21,7 +24,6 @@ import {
 	type Transport,
 	textInput,
 } from "./index";
-import { ComponentType } from "discord-api-types/v10";
 
 const setup = (
 	kind: "command" | "component" | "modal",

@@ -1,12 +1,12 @@
 import {
+	AllowedMentionsTypes,
 	type APIActionRowComponent,
 	type APIAllowedMentions,
-	type APIEmbed,
-	type APIInteractionResponseCallbackData,
 	type APIButtonComponent,
 	type APIComponentInMessageActionRow,
+	type APIEmbed,
+	type APIInteractionResponseCallbackData,
 	type APISelectMenuComponent,
-	AllowedMentionsTypes,
 	ComponentType,
 } from "discord-api-types/v10";
 import { NubisError } from "./errors";

@@ -13,6 +13,12 @@ import type {
 	TopLevelSettings,
 } from "./command";
 import { NubisError } from "./errors";
+import {
+	descriptionLocalizations,
+	labelLocalizations,
+	nameLocalizations,
+	type Localizable,
+} from "./localization";
 import { assertValidDescription, assertValidName } from "./names";
 import type { OptionDefinition, OptionKind } from "./option";
 import type {
@@ -88,10 +94,17 @@ function optionDetails(
 				throw new NubisError(`${at}: integer choices must be whole numbers.`);
 			}
 		}
-		details.choices = choices.map(({ name: label, value }) => ({
-			name: label,
-			value,
-		}));
+		details.choices = choices.map(
+			({ name: label, value, nameLocalizations: labels }) => ({
+				name: label,
+				value,
+				...labelLocalizations(
+					labels,
+					`${at} choice "${label}"`,
+					MAX_CHOICE_NAME,
+				),
+			}),
+		);
 	}
 	if (autocomplete) details.autocomplete = true;
 
@@ -153,6 +166,7 @@ function serializeOption(
 		type: OPTION_TYPES[option.kind],
 		name,
 		description,
+		...localized(option.config, `${where} option "${name}"`),
 		required: option.required,
 		...optionDetails(name, option, where),
 	} as APIApplicationCommandBasicOption;
@@ -186,6 +200,7 @@ function serializeChild(node: CommandNode): APIApplicationCommandOption {
 			type: ApplicationCommandOptionType.Subcommand,
 			name: node.name,
 			description: node.definition.description,
+			...localized(node.definition, slash(node.path)),
 			options: serializeLeafOptions(node),
 		};
 	}
@@ -193,6 +208,7 @@ function serializeChild(node: CommandNode): APIApplicationCommandOption {
 		type: ApplicationCommandOptionType.SubcommandGroup,
 		name: node.name,
 		description: folderDescription(node),
+		...localized(node.folder ?? {}, `commands/${node.path.join("/")}`),
 		options: [...node.children.values()].map((child) => {
 			if (child.type !== "command") {
 				throw new NubisError(
@@ -203,6 +219,12 @@ function serializeChild(node: CommandNode): APIApplicationCommandOption {
 		}),
 	};
 }
+
+/** A command's, folder's or option's name and description in other languages. */
+const localized = (settings: Localizable, where: string) => ({
+	...nameLocalizations(settings.nameLocalizations, where),
+	...descriptionLocalizations(settings.descriptionLocalizations, where),
+});
 
 const CONTEXTS = {
 	guild: InteractionContextType.Guild,
@@ -292,6 +314,7 @@ export function toCommandPayloads(tree: CommandTree): CommandPayload[] {
 				type: ApplicationCommandType.ChatInput,
 				name: node.name,
 				description: node.definition.description,
+				...localized(node.definition, slash(node.path)),
 				options: serializeLeafOptions(node),
 				...topLevelFields(node.definition),
 			};
@@ -300,6 +323,7 @@ export function toCommandPayloads(tree: CommandTree): CommandPayload[] {
 			type: ApplicationCommandType.ChatInput,
 			name: node.name,
 			description: folderDescription(node),
+			...localized(node.folder ?? {}, `commands/${node.path.join("/")}`),
 			options: [...node.children.values()].map(serializeChild),
 			...topLevelFields(node.folder ?? {}),
 		};

@@ -9,12 +9,12 @@ import {
 	buildCommandTree,
 	button,
 	command,
+	DEFAULT_ALLOWED_MENTIONS,
 	dispatch,
+	ERROR_MESSAGE,
 	NubisError,
 	option,
 	stateOf,
-	DEFAULT_ALLOWED_MENTIONS,
-	ERROR_MESSAGE,
 } from "./index";
 
 describe("dispatch", () => {

@@ -5,7 +5,6 @@ import {
 	InteractionResponseType,
 } from "discord-api-types/v10";
 import { NubisError } from "./errors";
-import { settleStateWrites } from "./store";
 import {
 	type ReplyFile,
 	type ReplyInput,
@@ -13,6 +12,7 @@ import {
 	toMessageBody,
 	toReplyMessage,
 } from "./reply";
+import { settleStateWrites } from "./store";
 
 /**
  * The four calls Discord offers for answering an interaction. The gateway

@@ -54,6 +54,19 @@ describe("testCommand", () => {
 		expect(result.ephemeral).toBe(true);
 	});
 
+	test("the actor's language reaches the handler", async () => {
+		const greet = command({
+			description: "Greet",
+			run: ({ interaction, reply }) =>
+				reply(`${interaction.locale} ${interaction.guild_locale}`),
+		});
+		expect((await testCommand(greet).run()).replies).toEqual(["en-US en-US"]);
+		expect(
+			(await testCommand(greet).as({ locale: "tr", guildLocale: "de" }).run())
+				.replies,
+		).toEqual(["tr de"]);
+	});
+
 	test("guards see the actor: no permission, no ban", async () => {
 		const result = await testCommand(ban).run({ user: fake.user("alice") });
 		expect(result.status).toBe("denied");

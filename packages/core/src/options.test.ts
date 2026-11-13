@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
 	type APIApplicationCommand,
-	ApplicationCommandOptionType as Opt,
 	ChannelType,
+	ApplicationCommandOptionType as Opt,
 	PermissionFlagsBits,
 } from "discord-api-types/v10";
 import { autocomplete, chatInput, recorder } from "./__fixtures__/interactions";

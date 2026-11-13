@@ -5,16 +5,16 @@ import {
 	InteractionType,
 	TextInputStyle,
 } from "discord-api-types/v10";
+import type { NubisApi } from "./api";
 import {
 	type AnySchema,
+	type ComponentRuntime,
 	type ComponentState,
 	type ModalData,
-	RUNTIME,
 	type RenderArgs,
+	RUNTIME,
 	type WithRuntime,
-	type ComponentRuntime,
 } from "./component";
-import type { NubisApi } from "./api";
 import { assertValidComponentId, renderCustomId } from "./custom-id";
 import { NubisError } from "./errors";
 import type { Guard } from "./guard";

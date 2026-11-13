@@ -44,6 +44,10 @@ export interface Actor {
 	readonly appPermissions?: bigint;
 	/** For components: who ran the command that sent the message. */
 	readonly invoker?: APIUser;
+	/** The user's Discord language, as `interaction.locale`. Defaults to "en-US". */
+	readonly locale?: string;
+	/** The server's language, as `interaction.guild_locale`. Defaults to "en-US". */
+	readonly guildLocale?: string;
 }
 
 export interface TestResult extends Recording {
@@ -65,6 +69,7 @@ function interactionBase(actor: Actor, type: InteractionType) {
 		? {}
 		: {
 				guild_id: actor.guildId ?? "test-guild",
+				guild_locale: actor.guildLocale ?? "en-US",
 				member: {
 					user,
 					roles: [...(actor.roles ?? [])],
@@ -83,7 +88,7 @@ function interactionBase(actor: Actor, type: InteractionType) {
 		type,
 		channel_id: actor.channelId ?? "test-channel",
 		app_permissions: String(actor.appPermissions ?? 0n),
-		locale: "en-US",
+		locale: actor.locale ?? "en-US",
 		...(actor.dm ? { user } : guild),
 		...(actor.invoker
 			? {

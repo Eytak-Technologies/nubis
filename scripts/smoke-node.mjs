@@ -33,6 +33,37 @@ const tree = nubis.buildCommandTree([{ path: ["ping"], definition: ping }]);
 const [payload] = nubis.toCommandPayloads(tree);
 assert.equal(payload.name, "ping");
 assert.equal(payload.options[0].type, 5); // Boolean
+
+// Localizations reach the payload, and the locale check runs under Node.
+const [localized] = nubis.toCommandPayloads(
+	nubis.buildCommandTree([
+		{
+			path: ["roll"],
+			definition: nubis.command({
+				description: "Roll a die",
+				descriptionLocalizations: { tr: "Bir zar at" },
+				run: () => {},
+			}),
+		},
+	]),
+);
+assert.deepEqual(localized.description_localizations, { tr: "Bir zar at" });
+assert.throws(
+	() =>
+		nubis.toCommandPayloads(
+			nubis.buildCommandTree([
+				{
+					path: ["roll"],
+					definition: nubis.command({
+						description: "Roll",
+						descriptionLocalizations: { turkish: "Zar" },
+						run: () => {},
+					}),
+				},
+			]),
+		),
+	/isn't a Discord locale/,
+);
 const replies = [];
 const pong = nubis.command({
 	description: "Pong",

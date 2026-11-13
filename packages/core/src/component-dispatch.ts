@@ -2,18 +2,18 @@ import type {
 	APIMessageComponentInteraction,
 	APIModalSubmitInteraction,
 } from "discord-api-types/v10";
+import type { NubisApi } from "./api";
 import {
 	type ComponentDefinition,
 	type ComponentRuntime,
 	RUNTIME,
 } from "./component";
-import type { NubisApi } from "./api";
 import { decodeCustomId } from "./custom-id";
 import { answerError } from "./dispatch";
 import { type ErrorHandler, NubisError, reportError } from "./errors";
 import { type Guard, guardContext, runGuards } from "./guard";
-import { type Middleware, runWithMiddleware } from "./middleware";
 import { createLifecycle, type Scheduler, type Transport } from "./lifecycle";
+import { type Middleware, runWithMiddleware } from "./middleware";
 
 export type ComponentRegistry = ReadonlyMap<string, ComponentRuntime>;
 

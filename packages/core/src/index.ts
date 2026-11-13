@@ -4,11 +4,11 @@ export type { AutocompleteOptions, AutocompleteResult } from "./autocomplete";
 export { dispatchAutocomplete } from "./autocomplete";
 export type {
 	CommandConfig,
+	CommandContext,
 	CommandContextName,
+	CommandDefinition,
 	IntegrationTypeName,
 	TopLevelSettings,
-	CommandContext,
-	CommandDefinition,
 } from "./command";
 export { command } from "./command";
 export type {
@@ -51,8 +51,6 @@ export {
 	toEmoji,
 	userSelect,
 } from "./component";
-export type { MemoryStoreOptions, StateStore } from "./store";
-export { memoryStore } from "./store";
 export type {
 	ComponentDispatchOptions,
 	ComponentDispatchResult,
@@ -66,14 +64,6 @@ export {
 } from "./component-dispatch";
 export type { DispatchOptions, DispatchResult } from "./dispatch";
 export { dispatch, ERROR_MESSAGE, UNKNOWN_COMMAND_MESSAGE } from "./dispatch";
-export type {
-	InteractionKind,
-	Lifecycle,
-	LifecycleOptions,
-	Scheduler,
-	Transport,
-} from "./lifecycle";
-export { createLifecycle, DEFAULT_AUTO_DEFER_MS } from "./lifecycle";
 export type { ErrorHandler, ErrorInfo } from "./errors";
 export { NubisError } from "./errors";
 export type {
@@ -109,8 +99,14 @@ export {
 	hasRole,
 	invokerOnly,
 } from "./guard";
-export type { Middleware, MiddlewareContext } from "./middleware";
-export { middleware } from "./middleware";
+export type {
+	InteractionKind,
+	Lifecycle,
+	LifecycleOptions,
+	Scheduler,
+	Transport,
+} from "./lifecycle";
+export { createLifecycle, DEFAULT_AUTO_DEFER_MS } from "./lifecycle";
 export type {
 	MenuDefinition,
 	MenuDispatchResult,
@@ -126,6 +122,8 @@ export {
 	toMenuPayloads,
 	userCommand,
 } from "./menu";
+export type { Middleware, MiddlewareContext } from "./middleware";
+export { middleware } from "./middleware";
 export type {
 	FieldMap,
 	ModalConfig,
@@ -179,6 +177,9 @@ export type {
 export { stateOf } from "./schema";
 export type { CommandPayload } from "./serialize";
 export { toCommandPayloads } from "./serialize";
+export type { DiscordLocale, Localizable, Localizations } from "./localization";
+export type { MemoryStoreOptions, StateStore } from "./store";
+export { memoryStore } from "./store";
 export type { AnyCommandPayload, SyncPlan } from "./sync";
 export { planSync } from "./sync";
 export type {
@@ -188,6 +189,6 @@ export type {
 	CommandNode,
 	CommandParent,
 	CommandTree,
+	FolderSettings,
 } from "./tree";
-export type { FolderSettings } from "./tree";
 export { buildCommandTree, folder } from "./tree";

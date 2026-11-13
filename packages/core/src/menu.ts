@@ -14,11 +14,12 @@ import type { ModalData } from "./component";
 import { answerError, type DispatchOptions } from "./dispatch";
 import { NubisError, reportError } from "./errors";
 import { type Guard, guardContext, runGuards } from "./guard";
+import type { Transport } from "./lifecycle";
 import { createLifecycle } from "./lifecycle";
+import { type Localizations, labelLocalizations } from "./localization";
 import { type Middleware, runWithMiddleware } from "./middleware";
 import type { ReplyInput } from "./reply";
 import { topLevelFields } from "./serialize";
-import type { Transport } from "./lifecycle";
 
 interface MenuContextBase {
 	/** Discord's API: act on the user or message. */
@@ -46,6 +47,8 @@ export interface MessageMenuContext extends MenuContextBase {
 interface MenuConfigBase extends TopLevelSettings {
 	/** Shown in the right-click menu: 1-32 characters, spaces and capitals allowed ("Report message"). */
 	readonly name: string;
+	/** The name in other languages, by Discord locale; free text like `name`. */
+	readonly nameLocalizations?: Localizations;
 	readonly ephemeral?: boolean;
 	readonly guards?: readonly Guard[];
 	readonly middleware?: readonly Middleware[];
@@ -127,6 +130,11 @@ export function toMenuPayloads(
 	return menus.map((menu) => ({
 		type: TYPES[menu.kind],
 		name: menu.name,
+		...labelLocalizations(
+			menu.config.nameLocalizations,
+			`Context menu "${menu.name}"`,
+			MAX_NAME,
+		),
 		...topLevelFields(menu.config),
 	})) as MenuPayload[];
 }

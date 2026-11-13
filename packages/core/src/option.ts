@@ -6,6 +6,7 @@ import type {
 	ChannelType,
 } from "discord-api-types/v10";
 import type { NubisApi } from "./api";
+import type { Localizable, Localizations } from "./localization";
 
 /** What each option kind resolves to inside `run()`. */
 export interface OptionValues {
@@ -24,6 +25,8 @@ export type OptionKind = keyof OptionValues;
 export interface Choice<V extends string | number = string | number> {
 	readonly name: string;
 	readonly value: V;
+	/** The choice's name in other languages, by Discord locale. */
+	readonly nameLocalizations?: Localizations;
 }
 
 export interface AutocompleteContext {
@@ -42,7 +45,7 @@ export type AutocompleteHandler<V extends string | number> = (
 	context: AutocompleteContext,
 ) => readonly Choice<V>[] | Promise<readonly Choice<V>[]>;
 
-interface BaseOptionConfig {
+interface BaseOptionConfig extends Localizable {
 	readonly required?: boolean;
 	/** Shown in Discord's command picker. Defaults to the option name. */
 	readonly description?: string;

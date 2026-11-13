@@ -18,13 +18,21 @@ export interface SyncPlan {
 	readonly unchanged: readonly string[];
 }
 
+type Localizations = Readonly<Record<string, string | null>> | null;
+
 type Comparable = {
 	type?: number;
 	name: string;
+	name_localizations?: Localizations;
 	description?: string;
+	description_localizations?: Localizations;
 	required?: boolean;
 	options?: readonly Comparable[];
-	choices?: readonly { name: string; value: string | number }[];
+	choices?: readonly {
+		name: string;
+		name_localizations?: Localizations;
+		value: string | number;
+	}[];
 	autocomplete?: boolean;
 	min_value?: number;
 	max_value?: number;
@@ -42,15 +50,32 @@ const sorted = (values: readonly number[] | null | undefined) =>
 
 // Only the fields Nubis writes take part in the comparison, with Discord's
 // defaults filled in, so values Discord adds on its side (ids, versions,
-// localizations, `required: false`) don't look like changes.
+// `required: false`) don't look like changes. Localizations count: Discord
+// returns them when asked with `with_localizations=true`, and an empty or
+// missing map is the same as null.
+function localizations(map: Localizations | undefined): unknown {
+	const entries = Object.entries(map ?? {}).filter(
+		(entry): entry is [string, string] => typeof entry[1] === "string",
+	);
+	return entries.length === 0
+		? null
+		: Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b)));
+}
+
 function normalizeOption(option: Comparable): unknown {
 	return {
 		type: option.type,
 		name: option.name,
+		name_localizations: localizations(option.name_localizations),
 		description: option.description ?? "",
+		description_localizations: localizations(option.description_localizations),
 		required: option.required ?? false,
 		choices:
-			option.choices?.map(({ name, value }) => ({ name, value })) ?? null,
+			option.choices?.map(({ name, name_localizations, value }) => ({
+				name,
+				name_localizations: localizations(name_localizations),
+				value,
+			})) ?? null,
 		autocomplete: option.autocomplete ?? false,
 		min_value: option.min_value ?? null,
 		max_value: option.max_value ?? null,
@@ -66,7 +91,9 @@ function normalize(command: Comparable): unknown {
 	return {
 		type: command.type ?? ApplicationCommandType.ChatInput,
 		name: command.name,
+		name_localizations: localizations(command.name_localizations),
 		description: command.description ?? "",
+		description_localizations: localizations(command.description_localizations),
 		default_member_permissions: command.default_member_permissions ?? null,
 		contexts: sorted(command.contexts),
 		// Discord reports guild install for commands that never set this.

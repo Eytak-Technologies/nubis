@@ -67,6 +67,7 @@ test("asks for confirmation", async () => {
 - **One `reply()`.** Nubis sends "thinking…" when a handler is slow, turns later replies into follow-ups, and answers errors, so "already replied" and "did not respond" don't happen by accident.
 - **Guards and middleware** for commands, folders, components and modals: `hasPermission`, `hasRole`, `cooldown`, `invokerOnly`, or your own.
 - **Context menus, autocomplete and typed gateway events.**
+- **Localized commands.** Names, descriptions and choices in other languages, checked against Discord's rules for each one; `nubis sync` keeps the translations in step.
 - **Runs anywhere.** Node 20+ and Bun. The HTTP interactions endpoint takes a web standard `Request`, so it also runs on serverless platforms.
 - **Testing built in.** `nubis/testing` runs commands, buttons, selects, modals and menus as Discord would.
 

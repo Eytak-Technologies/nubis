@@ -1,6 +1,7 @@
 import type { CommandDefinition, TopLevelSettings } from "./command";
 import { NubisError } from "./errors";
 import type { Guard } from "./guard";
+import type { Localizable } from "./localization";
 import type { Middleware } from "./middleware";
 import { assertValidName } from "./names";
 import type { OptionMap } from "./option";
@@ -22,7 +23,7 @@ export interface CommandLeaf {
  * Settings for a folder of commands (the loader will read them from a file in
  * the folder). Guards and middleware apply to every command inside it.
  */
-export interface CommandFolder {
+export interface CommandFolder extends Localizable {
 	readonly path: readonly string[];
 	/** Shown in Discord's command picker. Defaults to the folder name. */
 	readonly description?: string;

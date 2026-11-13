@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-	ApplicationCommandOptionType as Opt,
 	ApplicationCommandType,
+	ApplicationCommandOptionType as Opt,
 } from "discord-api-types/v10";
 import {
 	buildCommandTree,

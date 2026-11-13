@@ -2,6 +2,7 @@ import type { APIChatInputApplicationCommandInteraction } from "discord-api-type
 import type { NubisApi } from "./api";
 import type { ModalData } from "./component";
 import type { Guard } from "./guard";
+import type { Localizable } from "./localization";
 import type { Middleware } from "./middleware";
 import type { OptionMap, ResolvedOptions } from "./option";
 import type { ReplyInput } from "./reply";
@@ -38,7 +39,7 @@ export interface CommandContext<T extends OptionMap> {
 	showModal(modal: ModalData): Promise<void>;
 }
 
-export interface CommandConfig<T extends OptionMap> {
+export interface CommandConfig<T extends OptionMap> extends Localizable {
 	readonly description: string;
 	readonly options?: T;
 	/** Makes replies (and the automatic "thinking…") visible only to the user. */
