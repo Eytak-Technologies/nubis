@@ -1,5 +1,13 @@
 # nubis
 
+## 0.1.0-next.3
+
+### Patch Changes
+
+- Updated dependencies [404b294]
+  - @nubisjs/core@0.1.0-next.3
+  - @nubisjs/testing@0.1.0-next.3
+
 ## 0.1.0-next.2
 
 ### Patch Changes

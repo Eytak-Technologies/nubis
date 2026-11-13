@@ -1,5 +1,11 @@
 # @nubisjs/core
 
+## 0.1.0-next.3
+
+### Patch Changes
+
+- 404b294: `nubis sync` no longer rewrites unchanged commands on apps that can be installed to users. Discord reports `integration_types: [0, 1]` for commands that don't set it on such apps, which sync took for a change on every run; a command without `integrationTypes` now matches either app default, and one that sets it is compared as written.
+
 ## 0.1.0-next.2
 
 No changes in this release.
