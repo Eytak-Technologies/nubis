@@ -256,4 +256,54 @@ const [, tools] = nubis.toCommandPayloads(project.tree);
 assert.equal(tools.description, "Handy tools");
 assert.equal(project.events.get("ready").length, 1);
 
+// HTTP interactions: Ed25519 through Web Crypto must work on every supported Node.
+const keyPair = await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
+	"sign",
+	"verify",
+]);
+const hex = (buffer) => Buffer.from(buffer).toString("hex");
+const handle = nubis.createInteractionHandler({
+	publicKey: hex(await crypto.subtle.exportKey("raw", keyPair.publicKey)),
+	project,
+});
+const pingBody = JSON.stringify({
+	id: "i1",
+	application_id: "a1",
+	token: "t",
+	type: 2,
+	user: { id: "u1" },
+	data: { id: "c1", type: 1, name: "ping" },
+});
+const stamp = String(Math.floor(Date.now() / 1000));
+const httpResponse = await handle(
+	new Request("http://bot.test/", {
+		method: "POST",
+		headers: {
+			"x-signature-ed25519": hex(
+				await crypto.subtle.sign(
+					{ name: "Ed25519" },
+					keyPair.privateKey,
+					new TextEncoder().encode(stamp + pingBody),
+				),
+			),
+			"x-signature-timestamp": stamp,
+		},
+		body: pingBody,
+	}),
+);
+assert.equal(httpResponse.status, 200);
+assert.deepEqual((await httpResponse.json()).data.content, "pong");
+
+const forged = await handle(
+	new Request("http://bot.test/", {
+		method: "POST",
+		headers: {
+			"x-signature-ed25519": "00".repeat(64),
+			"x-signature-timestamp": stamp,
+		},
+		body: pingBody,
+	}),
+);
+assert.equal(forged.status, 401);
+
 console.log(`Node ${process.version}: smoke test passed`);

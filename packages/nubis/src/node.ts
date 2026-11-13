@@ -4,3 +4,4 @@
  */
 export type { LoadOptions, Project } from "./loader";
 export { loadProject } from "./loader";
+export { toNodeListener } from "./node-listener";
