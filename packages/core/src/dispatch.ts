@@ -6,11 +6,14 @@ import {
 } from "discord-api-types/v10";
 import { NubisError } from "./errors";
 import type { OptionMap, ResolvedOptions } from "./option";
+import { type ReplyMessage, toReplyMessage } from "./reply";
 import type { CommandLeaf, CommandTree } from "./tree";
 
-/** How a command answers. The gateway and HTTP transports each provide one. */
+/** How handlers answer. The gateway and HTTP transports each provide one. */
 export interface Responder {
-	reply(content: string): Promise<void>;
+	reply(message: ReplyMessage): Promise<void>;
+	/** Edits the message a component is on. Only valid for component interactions. */
+	update(message: ReplyMessage): Promise<void>;
 }
 
 export type DispatchResult =
@@ -107,7 +110,7 @@ export async function dispatch(
 	await leaf.definition.run({
 		options: resolveOptions(leaf, options, interaction),
 		interaction,
-		reply: (content) => responder.reply(content),
+		reply: (message) => responder.reply(toReplyMessage(message)),
 	});
 	return { status: "handled", path };
 }

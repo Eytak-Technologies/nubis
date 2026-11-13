@@ -4,6 +4,29 @@ export type {
 	CommandDefinition,
 } from "./command";
 export { command } from "./command";
+export type {
+	ButtonConfig,
+	ButtonDefinition,
+	ButtonOverrides,
+	ButtonStyleName,
+	ComponentContext,
+	ComponentDefinition,
+	ComponentState,
+	SelectOption,
+	StringSelectConfig,
+	StringSelectDefinition,
+	StringSelectOverrides,
+} from "./component";
+export { button, stringSelect } from "./component";
+export type {
+	ComponentDispatchResult,
+	ComponentRegistry,
+} from "./component-dispatch";
+export {
+	createComponentRegistry,
+	dispatchComponent,
+	STALE_MESSAGE,
+} from "./component-dispatch";
 export type { DispatchResult, Responder } from "./dispatch";
 export { dispatch } from "./dispatch";
 export { NubisError } from "./errors";
@@ -18,6 +41,21 @@ export type {
 	ResolvedOptions,
 } from "./option";
 export { option } from "./option";
+export type {
+	ActionRow,
+	ComponentInput,
+	ReplyInput,
+	ReplyMessage,
+	ReplyOptions,
+} from "./reply";
+export { toActionRows, toReplyMessage } from "./reply";
+export type {
+	SchemaInput,
+	SchemaOutput,
+	StandardResult,
+	StandardSchemaV1,
+} from "./schema";
+export { stateOf } from "./schema";
 export type { CommandPayload } from "./serialize";
 export { toCommandPayloads } from "./serialize";
 export type { SyncPlan } from "./sync";

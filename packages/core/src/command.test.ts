@@ -49,8 +49,8 @@ describe("command", () => {
 		await ban.run({
 			options: { days: 7, reason: undefined, loud: undefined },
 			interaction: chatInput("ban"),
-			reply: async (content) => {
-				replies.push(content);
+			reply: async (message) => {
+				replies.push(typeof message === "string" ? message : "");
 			},
 		});
 

@@ -1,11 +1,12 @@
 import type { APIChatInputApplicationCommandInteraction } from "discord-api-types/v10";
 import type { OptionMap, ResolvedOptions } from "./option";
+import type { ReplyInput } from "./reply";
 
 export interface CommandContext<T extends OptionMap> {
 	readonly options: ResolvedOptions<T>;
 	/** The raw interaction from Discord, for anything Nubis doesn't cover yet. */
 	readonly interaction: APIChatInputApplicationCommandInteraction;
-	reply(content: string): Promise<void>;
+	reply(message: ReplyInput): Promise<void>;
 }
 
 export interface CommandConfig<T extends OptionMap> {

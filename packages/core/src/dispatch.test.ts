@@ -1,12 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { ApplicationCommandOptionType as Opt } from "discord-api-types/v10";
+import {
+	ComponentType,
+	ApplicationCommandOptionType as Opt,
+} from "discord-api-types/v10";
 import { chatInput, recorder } from "./__fixtures__/interactions";
 import {
 	buildCommandTree,
+	button,
 	command,
 	dispatch,
 	NubisError,
 	option,
+	stateOf,
 } from "./index";
 
 describe("dispatch", () => {
@@ -109,5 +114,38 @@ describe("dispatch", () => {
 		const run = dispatch(tree, chatInput("echo"), responder);
 		await expect(run).rejects.toThrow(NubisError);
 		await expect(run).rejects.toThrow(/out of sync/);
+	});
+
+	test("replies can carry components, packed into rows", async () => {
+		const confirm = button({
+			id: "confirm",
+			label: "Confirm",
+			state: stateOf<{ id: string }>(),
+			onClick: () => {},
+		});
+		const tree = buildCommandTree([
+			{
+				path: ["ask"],
+				definition: command({
+					description: "Ask",
+					run: ({ reply }) =>
+						reply({
+							content: "Sure?",
+							components: [confirm({ id: "42" })],
+							ephemeral: true,
+						}),
+				}),
+			},
+		]);
+		const { messages, responder } = recorder();
+		await dispatch(tree, chatInput("ask"), responder);
+
+		expect(messages[0]?.message.ephemeral).toBe(true);
+		expect(messages[0]?.message.components).toEqual([
+			{
+				type: ComponentType.ActionRow,
+				components: [confirm({ id: "42" })],
+			},
+		]);
 	});
 });

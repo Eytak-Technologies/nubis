@@ -31,5 +31,8 @@
 	},
 	"dependencies": {
 		"discord-api-types": "^0.38.59"
+	},
+	"devDependencies": {
+		"zod": "^4.6.7"
 	}
 }

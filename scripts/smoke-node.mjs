@@ -29,10 +29,30 @@ const pong = nubis.command({
 const result = await nubis.dispatch(
 	nubis.buildCommandTree([{ path: ["pong"], definition: pong }]),
 	{ data: { name: "pong", type: 1 } },
-	{ reply: async (content) => replies.push(content) },
+	{
+		reply: async (message) => replies.push(message.content),
+		update: async () => {},
+	},
 );
 assert.equal(result.status, "handled");
 assert.deepEqual(replies, ["pong"]);
+
+// Typed components: render, then route a click back with its state.
+const clicks = [];
+const confirm = nubis.button({
+	id: "confirm",
+	label: "Confirm",
+	state: nubis.stateOf(),
+	onClick: ({ state }) => clicks.push(state.userId),
+});
+const rendered = confirm({ userId: "42" });
+const clicked = await nubis.dispatchComponent(
+	nubis.createComponentRegistry([confirm]),
+	{ data: { custom_id: rendered.custom_id, component_type: 2 } },
+	{ reply: async () => {}, update: async () => {} },
+);
+assert.equal(clicked.status, "handled");
+assert.deepEqual(clicks, ["42"]);
 
 const { version } = JSON.parse(
 	readFileSync(new URL("../packages/nubis/package.json", import.meta.url)),

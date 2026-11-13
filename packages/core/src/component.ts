@@ -1,0 +1,238 @@
+import {
+	type APIButtonComponentWithCustomId,
+	type APIMessageComponentInteraction,
+	type APIStringSelectComponent,
+	ButtonStyle,
+	ComponentType,
+} from "discord-api-types/v10";
+import { assertValidComponentId, encodeCustomId } from "./custom-id";
+import { NubisError } from "./errors";
+import type { ReplyInput } from "./reply";
+import type { SchemaInput, SchemaOutput, StandardSchemaV1 } from "./schema";
+
+type AnySchema = StandardSchemaV1<unknown, unknown>;
+
+/** State inside handlers: the schema's output, or `undefined` without one. */
+export type ComponentState<S> = [S] extends [undefined]
+	? undefined
+	: SchemaOutput<S>;
+
+/** Arguments for rendering: state first when the component has a schema. */
+type RenderArgs<S, O> = [S] extends [undefined]
+	? [overrides?: O]
+	: [state: SchemaInput<S>, overrides?: O];
+
+export interface ComponentContext<State> {
+	readonly state: State;
+	/** The raw interaction from Discord, for anything Nubis doesn't cover yet. */
+	readonly interaction: APIMessageComponentInteraction;
+	/** Sends a new message. */
+	reply(message: ReplyInput): Promise<void>;
+	/** Edits the message the component is on. */
+	update(message: ReplyInput): Promise<void>;
+}
+
+/** What dispatch needs from any component, whatever its state type. */
+export interface ComponentRuntime {
+	readonly kind: "button" | "string-select";
+	readonly id: string;
+	readonly schema: AnySchema | undefined;
+	/** Returns false when the interaction doesn't fit this component (stale message). */
+	handle(
+		context: ComponentContext<unknown>,
+		interaction: APIMessageComponentInteraction,
+	): Promise<boolean>;
+}
+
+export const RUNTIME = "~nubis";
+
+interface WithRuntime {
+	readonly id: string;
+	readonly [RUNTIME]: ComponentRuntime;
+}
+
+function checkId(id: string): void {
+	assertValidComponentId(id);
+}
+
+// ------------------------------------------------------------------ button
+
+const BUTTON_STYLES = {
+	primary: ButtonStyle.Primary,
+	secondary: ButtonStyle.Secondary,
+	success: ButtonStyle.Success,
+	danger: ButtonStyle.Danger,
+} as const;
+
+export type ButtonStyleName = keyof typeof BUTTON_STYLES;
+
+export interface ButtonOverrides {
+	readonly label?: string;
+	readonly style?: ButtonStyleName;
+	readonly disabled?: boolean;
+}
+
+export interface ButtonConfig<S extends AnySchema | undefined> {
+	/** Routes clicks to this button. Changing it makes buttons already sent stop working. */
+	readonly id: string;
+	readonly label: string;
+	readonly style?: ButtonStyleName;
+	/** Validates the state that comes back with each click. */
+	readonly state?: S;
+	onClick(context: ComponentContext<ComponentState<S>>): unknown;
+}
+
+export interface ButtonDefinition<
+	S extends AnySchema | undefined,
+> extends WithRuntime {
+	(...args: RenderArgs<S, ButtonOverrides>): APIButtonComponentWithCustomId;
+	readonly kind: "button";
+}
+
+export function button<S extends AnySchema | undefined = undefined>(
+	config: ButtonConfig<S>,
+): ButtonDefinition<S> {
+	checkId(config.id);
+	const hasState = config.state !== undefined;
+
+	const render = (...args: unknown[]): APIButtonComponentWithCustomId => {
+		const [state, overrides] = (hasState ? args : [undefined, args[0]]) as [
+			unknown,
+			ButtonOverrides | undefined,
+		];
+		return {
+			type: ComponentType.Button,
+			custom_id: encodeCustomId(config.id, state),
+			label: overrides?.label ?? config.label,
+			style: BUTTON_STYLES[overrides?.style ?? config.style ?? "secondary"],
+			...(overrides?.disabled ? { disabled: true } : {}),
+		};
+	};
+
+	const runtime: ComponentRuntime = {
+		kind: "button",
+		id: config.id,
+		schema: config.state,
+		async handle(context, interaction) {
+			if (interaction.data.component_type !== ComponentType.Button)
+				return false;
+			await config.onClick(context as ComponentContext<ComponentState<S>>);
+			return true;
+		},
+	};
+
+	return Object.assign(render, {
+		id: config.id,
+		kind: "button" as const,
+		[RUNTIME]: runtime,
+	}) as unknown as ButtonDefinition<S>;
+}
+
+// ----------------------------------------------------------- string select
+
+export interface SelectOption<V extends string = string> {
+	readonly label: string;
+	readonly value: V;
+	readonly description?: string;
+	readonly default?: boolean;
+}
+
+export interface StringSelectOverrides {
+	readonly placeholder?: string;
+	readonly disabled?: boolean;
+}
+
+export interface StringSelectConfig<
+	O extends readonly SelectOption[],
+	S extends AnySchema | undefined,
+> {
+	readonly id: string;
+	readonly options: O;
+	readonly placeholder?: string;
+	readonly minValues?: number;
+	readonly maxValues?: number;
+	readonly state?: S;
+	onSelect(
+		context: ComponentContext<ComponentState<S>> & {
+			/** The chosen values, typed from `options`. */
+			readonly values: O[number]["value"][];
+		},
+	): unknown;
+}
+
+export interface StringSelectDefinition<
+	O extends readonly SelectOption[],
+	S extends AnySchema | undefined,
+> extends WithRuntime {
+	(...args: RenderArgs<S, StringSelectOverrides>): APIStringSelectComponent;
+	readonly kind: "string-select";
+	readonly options: O;
+}
+
+// Discord's limits for string selects.
+const MAX_SELECT_OPTIONS = 25;
+
+export function stringSelect<
+	const O extends readonly SelectOption[],
+	S extends AnySchema | undefined = undefined,
+>(config: StringSelectConfig<O, S>): StringSelectDefinition<O, S> {
+	checkId(config.id);
+	const where = `Select "${config.id}"`;
+	if (config.options.length < 1 || config.options.length > MAX_SELECT_OPTIONS) {
+		throw new NubisError(
+			`${where}: needs 1-${MAX_SELECT_OPTIONS} options (got ${config.options.length}).`,
+		);
+	}
+	const allowed = new Set(config.options.map((option) => option.value));
+	if (allowed.size !== config.options.length) {
+		throw new NubisError(`${where}: option values must be unique.`);
+	}
+	const hasState = config.state !== undefined;
+
+	const render = (...args: unknown[]): APIStringSelectComponent => {
+		const [state, overrides] = (hasState ? args : [undefined, args[0]]) as [
+			unknown,
+			StringSelectOverrides | undefined,
+		];
+		const placeholder = overrides?.placeholder ?? config.placeholder;
+		return {
+			type: ComponentType.StringSelect,
+			custom_id: encodeCustomId(config.id, state),
+			options: config.options.map((option) => ({ ...option })),
+			...(placeholder ? { placeholder } : {}),
+			...(config.minValues === undefined
+				? {}
+				: { min_values: config.minValues }),
+			...(config.maxValues === undefined
+				? {}
+				: { max_values: config.maxValues }),
+			...(overrides?.disabled ? { disabled: true } : {}),
+		};
+	};
+
+	const runtime: ComponentRuntime = {
+		kind: "string-select",
+		id: config.id,
+		schema: config.state,
+		async handle(context, interaction) {
+			const data = interaction.data;
+			if (data.component_type !== ComponentType.StringSelect) return false;
+			// Values outside the options mean the message predates a change to them.
+			if (!data.values.every((value) => allowed.has(value))) return false;
+			await config.onSelect({
+				...(context as ComponentContext<ComponentState<S>>),
+				values: data.values as O[number]["value"][],
+			});
+			return true;
+		},
+	};
+
+	return Object.assign(render, {
+		id: config.id,
+		kind: "string-select" as const,
+		options: config.options,
+		[RUNTIME]: runtime,
+	}) as unknown as StringSelectDefinition<O, S>;
+}
+
+export type ComponentDefinition = WithRuntime;
