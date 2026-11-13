@@ -1,3 +1,5 @@
+export type { NubisApi } from "./api";
+export { missingApi } from "./api";
 export type { AutocompleteOptions, AutocompleteResult } from "./autocomplete";
 export { dispatchAutocomplete } from "./autocomplete";
 export type {

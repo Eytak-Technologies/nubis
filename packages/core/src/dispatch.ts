@@ -4,6 +4,7 @@ import {
 	type APIChatInputApplicationCommandInteraction,
 	ApplicationCommandOptionType,
 } from "discord-api-types/v10";
+import type { NubisApi } from "./api";
 import { type ErrorHandler, NubisError, reportError } from "./errors";
 import { type Guard, guardContext, runGuards } from "./guard";
 import { type Middleware, runWithMiddleware } from "./middleware";
@@ -26,6 +27,8 @@ export interface DispatchOptions {
 	readonly middleware?: readonly Middleware[];
 	/** Receives every error a handler throws, after the user is told. */
 	readonly onError?: ErrorHandler;
+	/** Discord's API client, handed to handlers as `api`. */
+	readonly api?: NubisApi;
 }
 
 export type DispatchResult =
@@ -181,7 +184,7 @@ export async function dispatch(
 	}
 
 	try {
-		const context = guardContext(interaction);
+		const context = guardContext(interaction, options.api);
 		const denial = await runGuards(
 			[
 				...(options.guards ?? []),
@@ -208,6 +211,7 @@ export async function dispatch(
 				await leaf.definition.run({
 					options: resolveOptions(leaf, given, interaction),
 					interaction,
+					api: context.api,
 					reply: lifecycle.reply,
 					editReply: lifecycle.editReply,
 					defer: lifecycle.defer,

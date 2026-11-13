@@ -7,6 +7,7 @@ import type {
 	APIModalSubmitInteraction,
 	APIUser,
 } from "discord-api-types/v10";
+import { missingApi, type NubisApi } from "./api";
 
 export type GuardedInteraction =
 	| APIApplicationCommandAutocompleteInteraction
@@ -25,6 +26,8 @@ export interface Denial {
 
 export interface GuardContext {
 	readonly interaction: GuardedInteraction;
+	/** Discord's API, to look things up before deciding. */
+	readonly api: NubisApi;
 	/** Who used the command or component, in a server or in DMs. */
 	readonly user: APIUser;
 	/** The member, in a server; `undefined` in DMs. */
@@ -51,12 +54,16 @@ export function isDenial(value: unknown): value is Denial {
 	return typeof value === "object" && value !== null && DENIAL in value;
 }
 
-export function guardContext(interaction: GuardedInteraction): GuardContext {
+export function guardContext(
+	interaction: GuardedInteraction,
+	api: NubisApi = missingApi(),
+): GuardContext {
 	const member = interaction.member;
 	const user = member?.user ?? interaction.user;
 	if (!user) throw new Error("Discord sent an interaction without a user.");
 	return {
 		interaction,
+		api,
 		user,
 		member,
 		guildId: interaction.guild_id,

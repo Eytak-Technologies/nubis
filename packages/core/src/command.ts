@@ -1,4 +1,5 @@
 import type { APIChatInputApplicationCommandInteraction } from "discord-api-types/v10";
+import type { NubisApi } from "./api";
 import type { ModalData } from "./component";
 import type { Guard } from "./guard";
 import type { Middleware } from "./middleware";
@@ -22,6 +23,8 @@ export interface CommandContext<T extends OptionMap> {
 	readonly options: ResolvedOptions<T>;
 	/** The raw interaction from Discord, for anything Nubis doesn't cover yet. */
 	readonly interaction: APIChatInputApplicationCommandInteraction;
+	/** Discord's API: ban members, send messages, look things up. */
+	readonly api: NubisApi;
 	/** Sends a message. The first one answers the command, later ones are follow-ups. */
 	reply(message: ReplyInput): Promise<void>;
 	/** Edits the first reply, e.g. to show progress. */

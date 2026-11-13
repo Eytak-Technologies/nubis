@@ -14,6 +14,7 @@ import {
 	type WithRuntime,
 	type ComponentRuntime,
 } from "./component";
+import type { NubisApi } from "./api";
 import { assertValidComponentId, renderCustomId } from "./custom-id";
 import { NubisError } from "./errors";
 import type { Guard } from "./guard";
@@ -69,6 +70,8 @@ export interface ModalContext<State, F extends FieldMap> {
 	readonly values: ModalValues<F>;
 	/** The raw interaction from Discord, for anything Nubis doesn't cover yet. */
 	readonly interaction: APIModalSubmitInteraction;
+	/** Discord's API: act on what was submitted. */
+	readonly api: NubisApi;
 	reply(message: ReplyInput): Promise<void>;
 	/** Edits the message the modal was opened from. Only works for modals opened by a component. */
 	update(message: ReplyInput): Promise<void>;
@@ -269,6 +272,7 @@ export function modal<
 				state: base.state as ComponentState<S>,
 				values: values as ModalValues<F>,
 				interaction,
+				api: base.api,
 				reply: base.reply,
 				update: base.update,
 				editReply: base.editReply,

@@ -7,6 +7,7 @@ import {
 	type ComponentRuntime,
 	RUNTIME,
 } from "./component";
+import type { NubisApi } from "./api";
 import { decodeCustomId } from "./custom-id";
 import { answerError } from "./dispatch";
 import { type ErrorHandler, NubisError, reportError } from "./errors";
@@ -54,6 +55,8 @@ export interface ComponentDispatchOptions {
 	readonly middleware?: readonly Middleware[];
 	/** Receives every error a handler throws, after the user is told. */
 	readonly onError?: ErrorHandler;
+	/** Discord's API client, handed to handlers as `api`. */
+	readonly api?: NubisApi;
 }
 
 async function route(
@@ -92,7 +95,7 @@ async function route(
 		return stale(runtime.id, "custom_id state is not valid JSON");
 
 	try {
-		const context = guardContext(interaction);
+		const context = guardContext(interaction, options.api);
 		const denial = await runGuards(
 			[...(options.guards ?? []), ...runtime.guards],
 			context,
@@ -134,6 +137,7 @@ async function route(
 				handled = await runtime.handle(
 					{
 						state,
+						api: context.api,
 						reply: lifecycle.reply,
 						update: lifecycle.update,
 						editReply: lifecycle.editReply,

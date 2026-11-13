@@ -5,6 +5,7 @@ import type {
 	APIUser,
 	ChannelType,
 } from "discord-api-types/v10";
+import type { NubisApi } from "./api";
 
 /** What each option kind resolves to inside `run()`. */
 export interface OptionValues {
@@ -33,6 +34,7 @@ export interface AutocompleteContext {
 		Record<string, string | number | boolean | undefined>
 	>;
 	readonly interaction: APIApplicationCommandAutocompleteInteraction;
+	readonly api: NubisApi;
 }
 
 /** Suggests values while the user types. Up to 25 are shown; Nubis drops the rest. */

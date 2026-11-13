@@ -1,4 +1,5 @@
-import { dispatchEvent, type ErrorHandler } from "@nubisjs/core";
+import { API } from "@discordjs/core/http-only";
+import { dispatchEvent, type ErrorHandler, type NubisApi } from "@nubisjs/core";
 import { REST } from "@discordjs/rest";
 import { WebSocketManager, WebSocketShardEvents } from "@discordjs/ws";
 import {
@@ -41,6 +42,8 @@ export interface BotOptions {
 export interface Bot {
 	/** Discord's REST API, authenticated as the bot. */
 	readonly rest: RestLike;
+	/** The typed API client handlers get as `api`. */
+	readonly api: NubisApi;
 	/** The intents the bot connects with. */
 	readonly intents: number;
 	start(): Promise<void>;
@@ -62,8 +65,10 @@ export function createBot(options: BotOptions): Bot {
 				intents,
 				rest: rest as REST,
 			}) as unknown as GatewayLike);
+	const api = new API(rest as never) as NubisApi;
 	const routeOptions: RouteOptions = {
 		...options.dispatch,
+		api,
 		onError: options.onError ?? options.dispatch?.onError,
 	};
 
@@ -83,12 +88,14 @@ export function createBot(options: BotOptions): Bot {
 			void dispatchEvent(options.project.events, payload.t, payload.d, {
 				shardId,
 				onError: routeOptions.onError,
+				api,
 			});
 		},
 	);
 
 	return {
 		rest,
+		api,
 		intents,
 		start: () => gateway.connect(),
 		stop: async () => {

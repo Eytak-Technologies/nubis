@@ -309,3 +309,86 @@ describe("createBot", () => {
 		expect(fake.isConnected()).toBe(false);
 	});
 });
+
+describe("api in handlers", () => {
+	test("event handlers and commands get the typed API, sent through the bot's REST client", async () => {
+		const { rest, calls } = fakeRest();
+		let listener: (
+			payload: GatewayDispatchPayload,
+			shardId: number,
+		) => void = () => {};
+		const bot = createBot({
+			token: "t",
+			project: project({
+				tree: buildCommandTree([
+					{
+						path: ["ban"],
+						definition: command({
+							description: "Ban",
+							// Typed: banUser(guildId, userId, body?, options?)
+							run: async ({ api, interaction, reply }) => {
+								await api.guilds.banUser(interaction.guild_id ?? "", "u2", {
+									delete_message_seconds: 60,
+								});
+								await reply("banned");
+							},
+						}),
+					},
+				]),
+				events: createEventRegistry([
+					event("messageReactionAdd", async (reaction, { api }) => {
+						await api.channels.createMessage(reaction.channel_id, {
+							content: `${reaction.emoji.name} noted`,
+						});
+					}),
+				]),
+			}),
+			rest,
+			gateway: () => ({
+				on: (_event, fn) => {
+					listener = fn;
+				},
+				connect: async () => {},
+				destroy: () => {},
+			}),
+		});
+		await bot.start();
+
+		listener(
+			{
+				op: 0,
+				s: 1,
+				t: "MESSAGE_REACTION_ADD",
+				d: { channel_id: "c1", emoji: { name: "👀" } },
+			} as never,
+			0,
+		);
+		listener(
+			{
+				op: 0,
+				s: 2,
+				t: "INTERACTION_CREATE",
+				d: {
+					id: "i1",
+					application_id: "app",
+					token: "tok",
+					type: 2,
+					guild_id: "g1",
+					member: { user: { id: "u1" }, roles: [], permissions: "0" },
+					data: { id: "c1", type: 1, name: "ban" },
+				},
+			} as never,
+			0,
+		);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		const routes = calls.map((c) => `${c.method} ${c.route}`);
+		expect(routes).toContain("post /channels/c1/messages");
+		expect(routes).toContain("put /guilds/g1/bans/u2");
+		expect(
+			calls.find((c) => c.route === "/channels/c1/messages")?.options?.body,
+		).toEqual({
+			content: "👀 noted",
+		});
+	});
+});

@@ -1,4 +1,5 @@
 import type { GatewayDispatchPayload } from "discord-api-types/v10";
+import { missingApi, type NubisApi } from "./api";
 import { type ErrorHandler, reportError } from "./errors";
 
 type DispatchData = { [P in GatewayDispatchPayload as P["t"]]: P["d"] };
@@ -24,6 +25,8 @@ export interface EventContext {
 	readonly name: EventName;
 	/** The shard that received the event, when the transport shards. */
 	readonly shardId: number | undefined;
+	/** Discord's API, to act on the event. */
+	readonly api: NubisApi;
 }
 
 export interface EventDefinition<N extends EventName = EventName> {
@@ -86,13 +89,18 @@ export async function dispatchEvent(
 	registry: EventRegistry,
 	type: string,
 	data: unknown,
-	options: { readonly shardId?: number; readonly onError?: ErrorHandler } = {},
+	options: {
+		readonly shardId?: number;
+		readonly onError?: ErrorHandler;
+		readonly api?: NubisApi;
+	} = {},
 ): Promise<EventDispatchResult> {
 	const name = toEventName(type);
 	const handlers = registry.get(name) ?? [];
 	const context: EventContext = {
 		name: name as EventName,
 		shardId: options.shardId,
+		api: options.api ?? missingApi(),
 	};
 	const results = await Promise.allSettled(
 		handlers.map(async (definition) =>

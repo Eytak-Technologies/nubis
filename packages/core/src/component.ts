@@ -20,6 +20,7 @@ import {
 	InteractionType,
 	SelectMenuDefaultValueType,
 } from "discord-api-types/v10";
+import type { NubisApi } from "./api";
 import { assertValidComponentId, renderCustomId } from "./custom-id";
 import { NubisError } from "./errors";
 import type { Guard } from "./guard";
@@ -47,6 +48,8 @@ export interface ComponentContext<State> {
 	readonly state: State;
 	/** The raw interaction from Discord, for anything Nubis doesn't cover yet. */
 	readonly interaction: APIMessageComponentInteraction;
+	/** Discord's API: act on what was clicked. */
+	readonly api: NubisApi;
 	/** Sends a new message. */
 	reply(message: ReplyInput): Promise<void>;
 	/** Edits the message the component is on. Call it before reply(). */
@@ -67,6 +70,7 @@ export interface ComponentContext<State> {
 /** The parts of a handler context that don't depend on the interaction type. */
 export interface HandlerBase {
 	readonly state: unknown;
+	readonly api: NubisApi;
 	reply(message: ReplyInput): Promise<void>;
 	update(message: ReplyInput): Promise<void>;
 	editReply(message: ReplyInput): Promise<void>;

@@ -14,7 +14,14 @@ import {
 } from "@nubisjs/core";
 import { PermissionFlagsBits } from "discord-api-types/v10";
 import { z } from "zod";
-import { fake, testCommand, testComponent, testMenu, testModal } from "./index";
+import {
+	fake,
+	fakeApi,
+	testCommand,
+	testComponent,
+	testMenu,
+	testModal,
+} from "./index";
 
 const ban = command({
 	description: "Ban a member",
@@ -179,5 +186,66 @@ describe("fake", () => {
 		const b = fake.user();
 		expect(a.id).not.toBe(b.id);
 		expect(a.id).toMatch(/^\d{17,20}$/);
+	});
+});
+
+// This package doesn't import nubis, so NubisApi has no members here; bots that
+// import nubis/testing see the full typed API.
+type LooseApi = {
+	guilds: Record<
+		"get" | "removeMember",
+		(...args: unknown[]) => Promise<unknown>
+	>;
+};
+
+describe("fakeApi", () => {
+	test("records what handlers ask Discord to do", async () => {
+		const kick = command({
+			description: "Kick",
+			options: { user: option.user({ required: true }) },
+			run: async ({ options, api, interaction, reply }) => {
+				await (api as unknown as LooseApi).guilds.removeMember(
+					interaction.guild_id ?? "",
+					options.user.id,
+				);
+				await reply(`Kicked ${options.user.username}`);
+			},
+		});
+		const api = fakeApi();
+		const alice = fake.user("alice");
+		const result = await testCommand(kick).with({ api }).run({ user: alice });
+
+		expect(result.replies).toEqual(["Kicked alice"]);
+		expect(api.callsTo("guilds.removeMember")).toEqual([
+			{ method: "guilds.removeMember", args: ["test-guild", alice.id] },
+		]);
+	});
+
+	test("answers with canned responses", async () => {
+		const info = command({
+			description: "Info",
+			run: async ({ api, reply }) => {
+				const guild = (await (api as unknown as LooseApi).guilds.get("g1")) as {
+					name: string;
+				};
+				await reply(guild.name);
+			},
+		});
+		const api = fakeApi({ "guilds.get": { id: "g1", name: "Nubis Test" } });
+		expect((await testCommand(info).with({ api }).run()).replies).toEqual([
+			"Nubis Test",
+		]);
+	});
+
+	test("without one, using api explains how to get it", async () => {
+		const info = command({
+			description: "Info",
+			run: async ({ api }) => {
+				await (api as unknown as LooseApi).guilds.get("g1");
+			},
+		});
+		const result = await testCommand(info).run();
+		expect(result.status).toBe("error");
+		expect(String(result.error)).toMatch(/no Discord API client/);
 	});
 });

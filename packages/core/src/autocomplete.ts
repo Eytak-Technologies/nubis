@@ -3,6 +3,7 @@ import {
 	type APIApplicationCommandInteractionDataOption,
 	InteractionResponseType,
 } from "discord-api-types/v10";
+import { missingApi, type NubisApi } from "./api";
 import { locate } from "./dispatch";
 import { type ErrorHandler, reportError } from "./errors";
 import { type Guard, guardContext, runGuards } from "./guard";
@@ -14,6 +15,7 @@ export interface AutocompleteOptions {
 	/** The bot's guards; see DispatchOptions.guards. */
 	readonly guards?: readonly Guard[];
 	readonly onError?: ErrorHandler;
+	readonly api?: NubisApi;
 }
 
 export type AutocompleteResult =
@@ -80,7 +82,7 @@ export async function dispatchAutocomplete(
 				...parents.flatMap((parent) => parent.folder?.guards ?? []),
 				...(leaf.definition.guards ?? []),
 			],
-			guardContext(interaction),
+			guardContext(interaction, options.api),
 		);
 		if (denial) {
 			await respond([]);
@@ -96,6 +98,7 @@ export async function dispatchAutocomplete(
 				]),
 			),
 			interaction,
+			api: options.api ?? missingApi(),
 		});
 		const choices = suggestions
 			.slice(0, MAX_SUGGESTIONS)

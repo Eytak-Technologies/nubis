@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { chatInput } from "./__fixtures__/interactions";
-import { command, option } from "./index";
+import { command, missingApi, option } from "./index";
 
 type Equal<A, B> =
 	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
@@ -49,6 +49,7 @@ describe("command", () => {
 		await ban.run({
 			options: { days: 7, reason: undefined, loud: undefined },
 			interaction: chatInput("ban"),
+			api: missingApi(),
 			showModal: async () => {},
 			editReply: async () => {},
 			defer: async () => {},

@@ -8,6 +8,7 @@ import {
 	ApplicationCommandType,
 	type RESTPostAPIContextMenuApplicationCommandsJSONBody,
 } from "discord-api-types/v10";
+import type { NubisApi } from "./api";
 import type { TopLevelSettings } from "./command";
 import type { ModalData } from "./component";
 import { answerError, type DispatchOptions } from "./dispatch";
@@ -20,6 +21,8 @@ import { topLevelFields } from "./serialize";
 import type { Transport } from "./lifecycle";
 
 interface MenuContextBase {
+	/** Discord's API: act on the user or message. */
+	readonly api: NubisApi;
 	reply(message: ReplyInput): Promise<void>;
 	editReply(message: ReplyInput): Promise<void>;
 	defer(options?: { readonly ephemeral?: boolean }): Promise<void>;
@@ -176,7 +179,7 @@ export async function dispatchMenu(
 	}
 
 	try {
-		const context = guardContext(interaction);
+		const context = guardContext(interaction, options.api);
 		const denial = await runGuards(
 			[...(options.guards ?? []), ...(menu.config.guards ?? [])],
 			context,
@@ -188,6 +191,7 @@ export async function dispatchMenu(
 		}
 
 		const base = {
+			api: context.api,
 			reply: lifecycle.reply,
 			editReply: lifecycle.editReply,
 			defer: lifecycle.defer,

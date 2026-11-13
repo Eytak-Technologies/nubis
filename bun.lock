@@ -40,6 +40,7 @@
         "nubis": "./dist/cli.js",
       },
       "dependencies": {
+        "@discordjs/core": "^2.7.0",
         "@discordjs/rest": "^2.6.3",
         "@discordjs/ws": "^2.0.4",
         "@nubisjs/core": "workspace:*",
@@ -117,6 +118,8 @@
     "@clack/prompts": ["@clack/prompts@1.9.0", "", { "dependencies": { "@clack/core": "1.6.0", "fast-string-width": "^3.0.2", "fast-wrap-ansi": "^0.2.0", "sisteransi": "^2.0.0" } }, "sha512-tEj8X2No2A1c9NDnZECxiiJ8TP3vmFlN9tLlLeSaMqVW4tUmVG2R4qpv/eP4zymWxnymYLkLcIYVV0VcWj3RCQ=="],
 
     "@discordjs/collection": ["@discordjs/collection@2.1.1", "", {}, "sha512-LiSusze9Tc7qF03sLCujF5iZp7K+vRNEDBZ86FT9aQAv3vxMLihUvKvpsCWiQ2DJq1tVckopKm1rxomgNUc9hg=="],
+
+    "@discordjs/core": ["@discordjs/core@2.7.0", "", { "dependencies": { "@discordjs/rest": "^2.6.3", "@discordjs/util": "^1.2.0", "@discordjs/ws": "^2.0.4", "@sapphire/snowflake": "^3.5.5", "@vladfrangu/async_event_emitter": "^2.4.6", "discord-api-types": "^0.38.50" } }, "sha512-Mvn1m1TdZrHA3q++EAE3FlStpxuaoPwCb8ZjFLN2/u6I+R5s/jab8FNw/cUT5WnHeEtgy0wXGbsQjKfB09aJbQ=="],
 
     "@discordjs/rest": ["@discordjs/rest@2.6.3", "", { "dependencies": { "@discordjs/collection": "^2.1.1", "@discordjs/util": "^1.2.0", "@sapphire/async-queue": "^1.5.3", "@sapphire/snowflake": "^3.5.5", "@vladfrangu/async_event_emitter": "^2.4.6", "discord-api-types": "^0.38.50", "magic-bytes.js": "^1.13.0", "tslib": "^2.6.3", "undici": "^6.27.0" } }, "sha512-wvOylxNYJkwKjctS/Mn5GP1w9r3/rzyH+ThD1JlAca6zEdlHs8QWBBUQJpU5Q+W6DoIj/Ljh1IPlZs7hTU+UAg=="],
 
