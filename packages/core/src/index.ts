@@ -42,6 +42,25 @@ export type {
 export { createLifecycle, DEFAULT_AUTO_DEFER_MS } from "./lifecycle";
 export { NubisError } from "./errors";
 export type {
+	CooldownOptions,
+	Denial,
+	Guard,
+	GuardContext,
+	GuardedInteraction,
+	GuardResult,
+} from "./guard";
+export {
+	botHasPermission,
+	cooldown,
+	guard,
+	guildOnly,
+	hasPermission,
+	hasRole,
+	invokerOnly,
+} from "./guard";
+export type { Middleware, MiddlewareContext } from "./middleware";
+export { middleware } from "./middleware";
+export type {
 	FieldMap,
 	ModalConfig,
 	ModalContext,
@@ -89,6 +108,7 @@ export type { SyncPlan } from "./sync";
 export { planSync } from "./sync";
 export type {
 	CommandFile,
+	CommandFolder,
 	CommandLeaf,
 	CommandNode,
 	CommandParent,

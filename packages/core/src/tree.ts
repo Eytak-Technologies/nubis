@@ -1,5 +1,7 @@
 import type { CommandDefinition } from "./command";
 import { NubisError } from "./errors";
+import type { Guard } from "./guard";
+import type { Middleware } from "./middleware";
 import { assertValidName } from "./names";
 import type { OptionMap } from "./option";
 
@@ -16,11 +18,26 @@ export interface CommandLeaf {
 	readonly definition: CommandDefinition<OptionMap>;
 }
 
+/**
+ * Settings for a folder of commands (the loader will read them from a file in
+ * the folder). Guards and middleware apply to every command inside it.
+ */
+export interface CommandFolder {
+	readonly path: readonly string[];
+	/** Shown in Discord's command picker. Defaults to the folder name. */
+	readonly description?: string;
+	readonly guards?: readonly Guard[];
+	readonly middleware?: readonly Middleware[];
+	/** Top-level folders only: see CommandConfig.defaultMemberPermissions. */
+	readonly defaultMemberPermissions?: readonly bigint[];
+}
+
 export interface CommandParent {
 	readonly type: "parent";
 	readonly name: string;
 	readonly path: readonly string[];
 	readonly children: ReadonlyMap<string, CommandNode>;
+	readonly folder: CommandFolder | undefined;
 }
 
 export type CommandNode = CommandLeaf | CommandParent;
@@ -37,7 +54,10 @@ const slash = (path: readonly string[]) => `/${path.join(" ")}`;
  * Turns command files into the shape Discord expects. A folder becomes a
  * command with subcommands, a nested folder a subcommand group.
  */
-export function buildCommandTree(files: readonly CommandFile[]): CommandTree {
+export function buildCommandTree(
+	files: readonly CommandFile[],
+	folders: readonly CommandFolder[] = [],
+): CommandTree {
 	const root = new Map<string, CommandNode>();
 
 	for (const file of files) {
@@ -85,10 +105,30 @@ export function buildCommandTree(files: readonly CommandFile[]): CommandTree {
 				name: segment,
 				path,
 				children: new Map(),
+				folder: undefined,
 			};
 			level.set(segment, parent);
 			level = parent.children as Map<string, CommandNode>;
 		});
+	}
+
+	for (const folder of folders) {
+		const where = `commands/${folder.path.join("/")}`;
+		let level: ReadonlyMap<string, CommandNode> = root;
+		let node: CommandNode | undefined;
+		for (const segment of folder.path) {
+			node = level.get(segment);
+			if (node?.type !== "parent") break;
+			level = node.children;
+		}
+		if (node?.type !== "parent" || node.path.length !== folder.path.length) {
+			throw new NubisError(
+				`${where}: folder settings need a folder with commands in it, and there is none.`,
+			);
+		}
+		if (node.folder)
+			throw new NubisError(`${where}: folder settings are defined twice.`);
+		(node as { folder: CommandFolder | undefined }).folder = folder;
 	}
 
 	return root;

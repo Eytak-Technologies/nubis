@@ -5,6 +5,8 @@ import {
 	ApplicationCommandOptionType,
 } from "discord-api-types/v10";
 import { NubisError } from "./errors";
+import { type Guard, guardContext, runGuards } from "./guard";
+import { type Middleware, runWithMiddleware } from "./middleware";
 import {
 	createLifecycle,
 	type Lifecycle,
@@ -12,12 +14,16 @@ import {
 	type Transport,
 } from "./lifecycle";
 import type { OptionMap, ResolvedOptions } from "./option";
-import type { CommandLeaf, CommandTree } from "./tree";
+import type { CommandLeaf, CommandParent, CommandTree } from "./tree";
 
 export interface DispatchOptions {
 	/** See LifecycleOptions.autoDeferMs. */
 	readonly autoDeferMs?: number | false;
 	readonly schedule?: Scheduler;
+	/** Run before every handler, before folder and command guards. */
+	readonly guards?: readonly Guard[];
+	/** Wraps every handler, outermost. */
+	readonly middleware?: readonly Middleware[];
 }
 
 export type DispatchResult =
@@ -28,6 +34,11 @@ export type DispatchResult =
 			readonly responded: boolean;
 	  }
 	| { readonly status: "unknown"; readonly path: readonly string[] }
+	| {
+			readonly status: "denied";
+			readonly path: readonly string[];
+			readonly message: string;
+	  }
 	| {
 			readonly status: "error";
 			readonly path: readonly string[];
@@ -49,6 +60,8 @@ export async function answerError(lifecycle: Lifecycle): Promise<void> {
 
 interface Located {
 	readonly leaf: CommandLeaf | undefined;
+	/** Folders on the way to the leaf, outermost first. */
+	readonly parents: readonly CommandParent[];
 	readonly path: readonly string[];
 	readonly options: readonly APIApplicationCommandInteractionDataBasicOption[];
 }
@@ -58,17 +71,19 @@ function locate(
 	interaction: APIChatInputApplicationCommandInteraction,
 ): Located {
 	const path = [interaction.data.name];
+	const parents: CommandParent[] = [];
 	let node = tree.get(interaction.data.name);
 	let options: readonly APIApplicationCommandInteractionDataOption[] =
 		interaction.data.options ?? [];
 
 	while (node?.type === "parent") {
+		parents.push(node);
 		const [next] = options;
 		if (
 			next?.type !== ApplicationCommandOptionType.Subcommand &&
 			next?.type !== ApplicationCommandOptionType.SubcommandGroup
 		) {
-			return { leaf: undefined, path, options: [] };
+			return { leaf: undefined, parents, path, options: [] };
 		}
 		path.push(next.name);
 		node = node.children.get(next.name);
@@ -77,6 +92,7 @@ function locate(
 
 	return {
 		leaf: node,
+		parents,
 		path,
 		options:
 			options as readonly APIApplicationCommandInteractionDataBasicOption[],
@@ -136,7 +152,7 @@ export async function dispatch(
 	transport: Transport,
 	options: DispatchOptions = {},
 ): Promise<DispatchResult> {
-	const { leaf, path, options: given } = locate(tree, interaction);
+	const { leaf, parents, path, options: given } = locate(tree, interaction);
 	const lifecycle = createLifecycle(transport, {
 		kind: "command",
 		ephemeral: leaf?.definition.ephemeral,
@@ -154,14 +170,40 @@ export async function dispatch(
 	}
 
 	try {
-		await leaf.definition.run({
-			options: resolveOptions(leaf, given, interaction),
-			interaction,
-			reply: lifecycle.reply,
-			editReply: lifecycle.editReply,
-			defer: lifecycle.defer,
-			showModal: lifecycle.showModal,
-		});
+		const context = guardContext(interaction);
+		const denial = await runGuards(
+			[
+				...(options.guards ?? []),
+				...parents.flatMap((parent) => parent.folder?.guards ?? []),
+				...(leaf.definition.guards ?? []),
+			],
+			context,
+		);
+		if (denial) {
+			await lifecycle.reply({ content: denial.message, ephemeral: true });
+			await lifecycle.finish();
+			return { status: "denied", path, message: denial.message };
+		}
+
+		const { deny: _deny, ...base } = context;
+		await runWithMiddleware(
+			[
+				...(options.middleware ?? []),
+				...parents.flatMap((parent) => parent.folder?.middleware ?? []),
+				...(leaf.definition.middleware ?? []),
+			],
+			{ ...base, name: `/${path.join(" ")}`, kind: "command" },
+			async () => {
+				await leaf.definition.run({
+					options: resolveOptions(leaf, given, interaction),
+					interaction,
+					reply: lifecycle.reply,
+					editReply: lifecycle.editReply,
+					defer: lifecycle.defer,
+					showModal: lifecycle.showModal,
+				});
+			},
+		);
 	} catch (error) {
 		await answerError(lifecycle);
 		await lifecycle.finish();

@@ -20,8 +20,10 @@ export function componentInteraction(
 	component:
 		| { type: ComponentType.Button }
 		| { type: ComponentType.StringSelect; values: string[] },
+	actor?: Actor,
 ): APIMessageComponentInteraction {
 	return {
+		...actorFields(actor),
 		id: "1",
 		application_id: "2",
 		type: InteractionType.MessageComponent,
@@ -35,13 +37,63 @@ export function componentInteraction(
 	} as unknown as APIMessageComponentInteraction;
 }
 
+/** Who's interacting: a DM user by default, or a server member. */
+export interface Actor {
+	readonly userId?: string;
+	readonly guildId?: string;
+	readonly roles?: string[];
+	/** Permission bits, as Discord sends them on members. */
+	readonly permissions?: bigint;
+	/** The bot's own permissions in the channel. */
+	readonly appPermissions?: bigint;
+	readonly channelId?: string;
+	/** For components: who ran the command that sent the message. */
+	readonly invokerId?: string;
+}
+
+export function actorFields(actor: Actor = {}) {
+	const user = {
+		id: actor.userId ?? "u1",
+		username: "tester",
+		discriminator: "0",
+	};
+	return {
+		channel_id: actor.channelId ?? "c1",
+		app_permissions: String(actor.appPermissions ?? 0n),
+		...(actor.guildId
+			? {
+					guild_id: actor.guildId,
+					member: {
+						user,
+						roles: actor.roles ?? [],
+						permissions: String(actor.permissions ?? 0n),
+					},
+				}
+			: { user }),
+		...(actor.invokerId
+			? {
+					message: {
+						id: "m1",
+						interaction_metadata: {
+							id: "i0",
+							type: 2,
+							user: { id: actor.invokerId },
+						},
+					},
+				}
+			: {}),
+	};
+}
+
 /** A minimal slash command interaction, enough for routing and option tests. */
 export function chatInput(
 	name: string,
 	options?: APIApplicationCommandInteractionDataOption[],
 	resolved?: APIInteractionDataResolved,
+	actor?: Actor,
 ): APIChatInputApplicationCommandInteraction {
 	return {
+		...actorFields(actor),
 		id: "1",
 		application_id: "2",
 		type: InteractionType.ApplicationCommand,
@@ -137,8 +189,10 @@ export function manualClock() {
 export function modalSubmit(
 	customId: string,
 	values: Record<string, string>,
+	actor?: Actor,
 ): APIModalSubmitInteraction {
 	return {
+		...actorFields(actor),
 		id: "1",
 		application_id: "2",
 		type: InteractionType.ModalSubmit,

@@ -10,6 +10,8 @@ import {
 import { decodeCustomId } from "./custom-id";
 import { answerError } from "./dispatch";
 import { NubisError } from "./errors";
+import { type Guard, guardContext, runGuards } from "./guard";
+import { type Middleware, runWithMiddleware } from "./middleware";
 import { createLifecycle, type Scheduler, type Transport } from "./lifecycle";
 
 export type ComponentRegistry = ReadonlyMap<string, ComponentRuntime>;
@@ -37,6 +39,7 @@ export type ComponentDispatchResult =
 			readonly responded: boolean;
 	  }
 	| { readonly status: "error"; readonly id: string; readonly error: unknown }
+	| { readonly status: "denied"; readonly id: string; readonly message: string }
 	| { readonly status: "unknown"; readonly customId: string }
 	| { readonly status: "stale"; readonly id: string; readonly reason: string };
 
@@ -46,6 +49,9 @@ export const STALE_MESSAGE =
 export interface ComponentDispatchOptions {
 	readonly autoDeferMs?: number | false;
 	readonly schedule?: Scheduler;
+	/** Run before every component and modal handler, before their own guards. */
+	readonly guards?: readonly Guard[];
+	readonly middleware?: readonly Middleware[];
 }
 
 async function route(
@@ -84,6 +90,17 @@ async function route(
 		return stale(runtime.id, "custom_id state is not valid JSON");
 
 	try {
+		const context = guardContext(interaction);
+		const denial = await runGuards(
+			[...(options.guards ?? []), ...runtime.guards],
+			context,
+		);
+		if (denial) {
+			await lifecycle.reply({ content: denial.message, ephemeral: true });
+			await lifecycle.finish();
+			return { status: "denied", id: runtime.id, message: denial.message };
+		}
+
 		let state: unknown;
 		if (runtime.schema) {
 			const result = await runtime.schema["~standard"].validate(decoded.state);
@@ -96,17 +113,25 @@ async function route(
 			state = result.value;
 		}
 
-		const handled = await runtime.handle(
-			{
-				state,
-				reply: lifecycle.reply,
-				update: lifecycle.update,
-				editReply: lifecycle.editReply,
-				defer: lifecycle.defer,
-				deferUpdate: lifecycle.deferUpdate,
-				showModal: lifecycle.showModal,
+		const { deny: _deny, ...base } = context;
+		let handled = true;
+		await runWithMiddleware(
+			[...(options.middleware ?? []), ...runtime.middleware],
+			{ ...base, name: runtime.id, kind },
+			async () => {
+				handled = await runtime.handle(
+					{
+						state,
+						reply: lifecycle.reply,
+						update: lifecycle.update,
+						editReply: lifecycle.editReply,
+						defer: lifecycle.defer,
+						deferUpdate: lifecycle.deferUpdate,
+						showModal: lifecycle.showModal,
+					},
+					interaction,
+				);
 			},
-			interaction,
 		);
 		if (!handled)
 			return stale(runtime.id, "the interaction doesn't match this component");

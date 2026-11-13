@@ -16,6 +16,8 @@ import {
 } from "./component";
 import { assertValidComponentId, encodeCustomId } from "./custom-id";
 import { NubisError } from "./errors";
+import type { Guard } from "./guard";
+import type { Middleware } from "./middleware";
 import type { IsRequired } from "./option";
 import type { ReplyInput } from "./reply";
 
@@ -88,6 +90,8 @@ export interface ModalConfig<
 	/** Up to five fields. The keys become the field ids and the keys of `values`. */
 	readonly fields: F;
 	readonly state?: S;
+	readonly guards?: readonly Guard[];
+	readonly middleware?: readonly Middleware[];
 	onSubmit(context: ModalContext<ComponentState<S>, F>): unknown;
 }
 
@@ -244,6 +248,8 @@ export function modal<
 		kind: "modal",
 		id: config.id,
 		schema: config.state,
+		guards: config.guards ?? [],
+		middleware: config.middleware ?? [],
 		async handle(base, interaction) {
 			if (interaction.type !== InteractionType.ModalSubmit) return false;
 			const submitted = submittedValues(interaction);

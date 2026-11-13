@@ -1,5 +1,7 @@
 import type { APIChatInputApplicationCommandInteraction } from "discord-api-types/v10";
 import type { ModalData } from "./component";
+import type { Guard } from "./guard";
+import type { Middleware } from "./middleware";
 import type { OptionMap, ResolvedOptions } from "./option";
 import type { ReplyInput } from "./reply";
 
@@ -25,6 +27,17 @@ export interface CommandConfig<T extends OptionMap> {
 	readonly options?: T;
 	/** Makes replies (and the automatic "thinking…") visible only to the user. */
 	readonly ephemeral?: boolean;
+	/** Checks that run before `run`, after the folder's and the bot's own. */
+	readonly guards?: readonly Guard[];
+	/** Wraps `run`, inside the folder's and the bot's own middleware. */
+	readonly middleware?: readonly Middleware[];
+	/**
+	 * Hides the command from members without these permissions
+	 * (`PermissionFlagsBits`). Server admins can change this in Discord's
+	 * settings, so pair it with a `hasPermission` guard when it matters.
+	 * Top-level commands only; for subcommands, set it on the folder.
+	 */
+	readonly defaultMemberPermissions?: readonly bigint[];
 	run(context: CommandContext<T>): unknown;
 }
 

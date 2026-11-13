@@ -10,6 +10,8 @@ import {
 } from "discord-api-types/v10";
 import { assertValidComponentId, encodeCustomId } from "./custom-id";
 import { NubisError } from "./errors";
+import type { Guard } from "./guard";
+import type { Middleware } from "./middleware";
 import type { ReplyInput } from "./reply";
 import type { SchemaInput, SchemaOutput, StandardSchemaV1 } from "./schema";
 
@@ -65,6 +67,8 @@ export interface ComponentRuntime {
 	readonly kind: "button" | "string-select" | "modal";
 	readonly id: string;
 	readonly schema: AnySchema | undefined;
+	readonly guards: readonly Guard[];
+	readonly middleware: readonly Middleware[];
 	/** Returns false when the interaction doesn't fit (a stale message or form). */
 	handle(
 		base: HandlerBase,
@@ -113,6 +117,13 @@ export interface ButtonConfig<S extends AnySchema | undefined> {
 	readonly style?: ButtonStyleName;
 	/** Validates the state that comes back with each click. */
 	readonly state?: S;
+	/**
+	 * Checks before the handler. Anyone who can see a message can click its
+	 * components, so use `invokerOnly` or a permission guard for anything that
+	 * acts on someone's behalf.
+	 */
+	readonly guards?: readonly Guard[];
+	readonly middleware?: readonly Middleware[];
 	onClick(context: ComponentContext<ComponentState<S>>): unknown;
 }
 
@@ -147,6 +158,8 @@ export function button<S extends AnySchema | undefined = undefined>(
 		kind: "button",
 		id: config.id,
 		schema: config.state,
+		guards: config.guards ?? [],
+		middleware: config.middleware ?? [],
 		async handle(base, interaction) {
 			if (
 				!isMessageComponent(interaction) ||
@@ -193,6 +206,13 @@ export interface StringSelectConfig<
 	readonly minValues?: number;
 	readonly maxValues?: number;
 	readonly state?: S;
+	/**
+	 * Checks before the handler. Anyone who can see a message can click its
+	 * components, so use `invokerOnly` or a permission guard for anything that
+	 * acts on someone's behalf.
+	 */
+	readonly guards?: readonly Guard[];
+	readonly middleware?: readonly Middleware[];
 	onSelect(
 		context: ComponentContext<ComponentState<S>> & {
 			/** The chosen values, typed from `options`. */
@@ -255,6 +275,8 @@ export function stringSelect<
 		kind: "string-select",
 		id: config.id,
 		schema: config.state,
+		guards: config.guards ?? [],
+		middleware: config.middleware ?? [],
 		async handle(base, interaction) {
 			if (!isMessageComponent(interaction)) return false;
 			const data = interaction.data;

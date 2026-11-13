@@ -38,7 +38,7 @@ const pong = nubis.command({
 });
 const result = await nubis.dispatch(
 	nubis.buildCommandTree([{ path: ["pong"], definition: pong }]),
-	{ data: { name: "pong", type: 1 } },
+	{ type: 2, user: { id: "u1" }, data: { name: "pong", type: 1 } },
 	transportFor(replies),
 );
 assert.equal(result.status, "handled");
@@ -55,7 +55,11 @@ const confirm = nubis.button({
 const rendered = confirm({ userId: "42" });
 const clicked = await nubis.dispatchComponent(
 	nubis.createComponentRegistry([confirm]),
-	{ type: 3, data: { custom_id: rendered.custom_id, component_type: 2 } },
+	{
+		type: 3,
+		user: { id: "u1" },
+		data: { custom_id: rendered.custom_id, component_type: 2 },
+	},
 	transportFor([]),
 );
 assert.equal(clicked.status, "handled");
@@ -74,6 +78,7 @@ const submittedReport = await nubis.dispatchModal(
 	nubis.createComponentRegistry([report]),
 	{
 		type: 5,
+		user: { id: "u1" },
 		data: {
 			custom_id: "report",
 			components: [
@@ -100,7 +105,7 @@ const slow = nubis.command({
 });
 await nubis.dispatch(
 	nubis.buildCommandTree([{ path: ["slow"], definition: slow }]),
-	{ type: 2, data: { name: "slow", type: 1 } },
+	{ type: 2, user: { id: "u1" }, data: { name: "slow", type: 1 } },
 	{
 		respond: async (response) => trace.push(`respond:${response.type}`),
 		editOriginal: async (body) => trace.push(`edit:${body.content}`),
@@ -110,6 +115,27 @@ await nubis.dispatch(
 	{ autoDeferMs: 10 },
 );
 assert.deepEqual(trace, ["respond:5", "edit:finally"]);
+
+// Guards: permission bits are BigInt on every runtime.
+const denied = [];
+const ban = nubis.command({
+	description: "Ban",
+	guards: [nubis.hasPermission(1n << 2n)], // BanMembers
+	run: () => denied.push("ran"),
+});
+const banResult = await nubis.dispatch(
+	nubis.buildCommandTree([{ path: ["ban"], definition: ban }]),
+	{
+		type: 2,
+		guild_id: "g1",
+		member: { user: { id: "u1" }, roles: [], permissions: "2048" }, // SendMessages only
+		data: { name: "ban", type: 1 },
+	},
+	transportFor(denied),
+	{ autoDeferMs: false },
+);
+assert.equal(banResult.status, "denied");
+assert.deepEqual(denied, ["You don't have permission to do that."]);
 
 const { version } = JSON.parse(
 	readFileSync(new URL("../packages/nubis/package.json", import.meta.url)),

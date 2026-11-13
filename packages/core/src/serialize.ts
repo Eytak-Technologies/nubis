@@ -8,7 +8,12 @@ import {
 import { NubisError } from "./errors";
 import { assertValidDescription, assertValidName } from "./names";
 import type { OptionDefinition, OptionKind } from "./option";
-import type { CommandLeaf, CommandNode, CommandTree } from "./tree";
+import type {
+	CommandLeaf,
+	CommandNode,
+	CommandParent,
+	CommandTree,
+} from "./tree";
 
 export type CommandPayload = RESTPostAPIChatInputApplicationCommandsJSONBody;
 
@@ -76,7 +81,7 @@ function serializeChild(node: CommandNode): APIApplicationCommandOption {
 	return {
 		type: ApplicationCommandOptionType.SubcommandGroup,
 		name: node.name,
-		description: node.name,
+		description: folderDescription(node),
 		options: [...node.children.values()].map((child) => {
 			if (child.type !== "command") {
 				throw new NubisError(
@@ -88,9 +93,43 @@ function serializeChild(node: CommandNode): APIApplicationCommandOption {
 	};
 }
 
+const permissionsField = (permissions: readonly bigint[] | undefined) =>
+	permissions === undefined
+		? {}
+		: {
+				default_member_permissions: permissions
+					.reduce((all, permission) => all | permission, 0n)
+					.toString(),
+			};
+
+const folderDescription = (node: CommandParent) => {
+	const description = node.folder?.description ?? node.name;
+	assertValidDescription(description, `commands/${node.path.join("/")}`);
+	return description;
+};
+
+// Discord only reads default_member_permissions on top-level commands.
+function assertNoNestedPermissions(node: CommandNode): void {
+	if (node.type === "command") {
+		if (node.path.length > 1 && node.definition.defaultMemberPermissions) {
+			throw new NubisError(
+				`${slash(node.path)}: defaultMemberPermissions only works on top-level commands. Set it on the commands/${node.path[0]} folder instead.`,
+			);
+		}
+		return;
+	}
+	if (node.path.length > 1 && node.folder?.defaultMemberPermissions) {
+		throw new NubisError(
+			`commands/${node.path.join("/")}: defaultMemberPermissions only works on top-level folders.`,
+		);
+	}
+	for (const child of node.children.values()) assertNoNestedPermissions(child);
+}
+
 /** The JSON body Discord's "bulk overwrite application commands" endpoint takes. */
 export function toCommandPayloads(tree: CommandTree): CommandPayload[] {
 	return [...tree.values()].map((node): CommandPayload => {
+		assertNoNestedPermissions(node);
 		if (node.type === "command") {
 			assertValidDescription(node.definition.description, slash(node.path));
 			return {
@@ -98,14 +137,15 @@ export function toCommandPayloads(tree: CommandTree): CommandPayload[] {
 				name: node.name,
 				description: node.definition.description,
 				options: serializeLeafOptions(node),
+				...permissionsField(node.definition.defaultMemberPermissions),
 			};
 		}
 		return {
 			type: ApplicationCommandType.ChatInput,
 			name: node.name,
-			// Folders have no file to describe them yet; the name stands in.
-			description: node.name,
+			description: folderDescription(node),
 			options: [...node.children.values()].map(serializeChild),
+			...permissionsField(node.folder?.defaultMemberPermissions),
 		};
 	});
 }
