@@ -30,17 +30,19 @@ async function isPublished(name: string, version: string): Promise<boolean> {
 	return response.ok;
 }
 
-async function run(command: string[], cwd: string): Promise<string> {
+// The terminal is handed straight to each command. npm asks for two-factor
+// approval (a browser link, or a code) only when it is attached to one: with
+// its output captured, it fails with EOTP instead of waiting.
+async function run(command: string[], cwd: string): Promise<void> {
 	const process = Bun.spawn(command, {
 		cwd,
-		stdout: "pipe",
+		stdin: "inherit",
+		stdout: "inherit",
 		stderr: "inherit",
 	});
-	const output = await new Response(process.stdout).text();
 	if ((await process.exited) !== 0) {
 		throw new Error(`${command.join(" ")} failed in ${cwd}`);
 	}
-	return output;
 }
 
 const outDir = await mkdtemp(join(tmpdir(), "nubis-publish-"));
