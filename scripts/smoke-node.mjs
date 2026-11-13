@@ -471,4 +471,22 @@ assert.equal(
 	3, // Watching
 );
 
+// A .ts import without its extension fails on Node, and the loader says how
+// to fix it (or, on a Node that can't run .ts at all, says that instead).
+{
+	const { mkdirSync, writeFileSync } = await import("node:fs");
+	const bot = mkdtempSync(join(tmpdir(), "nubis-ext-"));
+	mkdirSync(join(bot, "commands"));
+	mkdirSync(join(bot, "lib"));
+	writeFileSync(join(bot, "lib", "util.ts"), 'export const x = "hi";\n');
+	writeFileSync(
+		join(bot, "commands", "hi.ts"),
+		'import { x } from "../lib/util";\nexport default { kind: "command", x };\n',
+	);
+	await assert.rejects(
+		loadProject(bot),
+		/Node needs the extension|can't import \.ts files/,
+	);
+}
+
 console.log(`Node ${process.version}: smoke test passed`);

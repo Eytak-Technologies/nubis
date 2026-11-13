@@ -48,14 +48,26 @@ describe("createProject", () => {
 
 		expect((await manifest(bun.dir)).scripts.test).toBe("bun test");
 		expect((await manifest(npm.dir)).scripts.test).toBe("vitest run");
-		// Every script runs a nubis command that exists.
-		for (const project of [bun, npm]) {
+		// Every script runs a nubis command that exists; a Bun project runs the
+		// CLI under Bun, a Node one needs a Node that runs .ts files.
+		for (const [project, cli] of [
+			[bun, "bun --bun nubis"],
+			[npm, "nubis"],
+		] as const) {
 			const { scripts } = await manifest(project.dir);
-			expect(scripts.dev).toBe("nubis dev");
-			expect(scripts.start).toBe("nubis start");
-			expect(scripts.sync).toBe("nubis sync --global");
+			expect(scripts.dev).toBe(`${cli} dev`);
+			expect(scripts.start).toBe(`${cli} start`);
+			expect(scripts.sync).toBe(`${cli} sync --global`);
 			expect(scripts.build).toBeUndefined();
 		}
+		expect((await manifest(npm.dir)).engines).toEqual({ node: ">=22.18" });
+		expect((await manifest(bun.dir)).engines).toBeUndefined();
+		// Imports between the bot's own files name the .ts file.
+		const counter = await readFile(
+			join(bun.dir, "commands/counter.ts"),
+			"utf8",
+		);
+		expect(counter).toContain('from "../components/counter.ts"');
 		expect((await manifest(npm.dir)).devDependencies.vitest).toBeDefined();
 		expect(
 			await readFile(join(bun.dir, "tests/commands.test.ts"), "utf8"),

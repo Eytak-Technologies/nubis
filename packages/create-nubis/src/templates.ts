@@ -17,6 +17,9 @@ export function templateFiles(
 	const bun = packageManager === "bun";
 	const run = packageManager === "npm" ? "npm run" : packageManager;
 	const testImport = bun ? "bun:test" : "vitest";
+	// The nubis binary starts with a node shebang. A Bun project runs it under
+	// Bun instead, so the bot's .ts files load on any Node version or none.
+	const cli = bun ? "bun --bun nubis" : "nubis";
 
 	return {
 		"package.json": json({
@@ -24,13 +27,16 @@ export function templateFiles(
 			private: true,
 			type: "module",
 			scripts: {
-				dev: "nubis dev",
-				start: "nubis start",
-				sync: "nubis sync --global",
+				dev: `${cli} dev`,
+				start: `${cli} start`,
+				sync: `${cli} sync --global`,
 				test: bun ? "bun test" : "vitest run",
 				typecheck: "tsc --noEmit",
 			},
 			dependencies: { nubis: nubisVersion },
+			// Node runs the bot's .ts files by stripping their types, on by
+			// default from 22.18.
+			...(bun ? {} : { engines: { node: ">=22.18" } }),
 			devDependencies: bun
 				? { "@types/bun": "^1.4.4", typescript: "^7.0.0" }
 				: { "@types/node": "^22.0.0", typescript: "^7.0.0", vitest: "^5.1.0" },
@@ -41,6 +47,9 @@ export function templateFiles(
 				target: "ES2022",
 				module: "Preserve",
 				moduleResolution: "bundler",
+				// Imports between the bot's files name the .ts file, which both
+				// Bun and Node's type stripping need.
+				allowImportingTsExtensions: true,
 				types: [bun ? "bun" : "node"],
 				strict: true,
 				noEmit: true,
@@ -77,6 +86,8 @@ A Discord bot built with [Nubis](https://eytak.com/nubis). Docs: https://eytak.c
 2. Copy \`.env.example\` to \`.env\` and fill it in.
 3. Run the tests: \`${run} test\`
 4. Start the bot: \`${run} dev\`
+${bun ? "" : "\nNeeds Node 22.18 or later, which runs TypeScript files directly.\n"}
+Import your own files with their extension (\`../components/counter.ts\`): Node needs it, and Bun accepts it.
 
 ## Deploying
 
@@ -143,7 +154,7 @@ export default command({
 `,
 
 		"commands/counter.ts": `import { command } from "nubis";
-import { counter } from "../components/counter";
+import { counter } from "../components/counter.ts";
 
 export default command({
 	description: "A button that counts clicks",
@@ -177,9 +188,9 @@ export default event("ready", (data) => {
 
 		"tests/commands.test.ts": `import { describe, expect, test } from "${testImport}";
 import { fake, testCommand, testComponent } from "nubis/testing";
-import { counter } from "../components/counter";
-import echo from "../commands/echo";
-import ping from "../commands/ping";
+import { counter } from "../components/counter.ts";
+import echo from "../commands/echo.ts";
+import ping from "../commands/ping.ts";
 
 describe("commands", () => {
 	test("/ping answers", async () => {

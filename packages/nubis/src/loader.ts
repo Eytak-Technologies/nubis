@@ -1,5 +1,5 @@
 import { readdir, stat } from "node:fs/promises";
-import { extname, join, relative, sep } from "node:path";
+import { basename, extname, join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
 	type AnyEventDefinition,
@@ -86,6 +86,22 @@ async function importModule(
 		if (code === "ERR_UNKNOWN_FILE_EXTENSION") {
 			throw new NubisError(
 				`${relative(root, file)}: this runtime can't import ${extname(file)} files. Run the bot with Bun or Node 22.18+, or build it to JavaScript first.`,
+			);
+		}
+		// Node finds `./counter.ts` but not `./counter`, which TypeScript
+		// projects often write and Bun accepts.
+		const missing = (error as { message?: string }).message?.match(
+			/Cannot find module '([^']+)' imported from (\S+)/,
+		);
+		if (
+			code === "ERR_MODULE_NOT_FOUND" &&
+			missing?.[1] &&
+			missing[2] &&
+			!extname(missing[1]) &&
+			/\.[mc]?ts$/.test(missing[2])
+		) {
+			throw new NubisError(
+				`${relative(root, missing[2])}: can't find "${relative(root, missing[1])}". Node needs the extension in imports between your own files: import "${basename(missing[1])}.ts", not "${basename(missing[1])}". Or run the CLI with Bun: bun --bun nubis dev.`,
 			);
 		}
 		throw error;
