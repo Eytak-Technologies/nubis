@@ -48,6 +48,10 @@ Releases run from `.github/workflows/release.yml` on every push to `main`:
 
 `scripts/publish.ts` packs each package with `bun pm pack`, which turns `workspace:*` into real versions (npm doesn't), and publishes the tarball with npm. `bun scripts/publish.ts --dry-run` shows what would happen.
 
+### Prereleases
+
+The repository is in changesets' prerelease mode (`.changeset/pre.json`, tag `next`): `bun run version` makes `0.1.0-next.N` versions, and `scripts/publish.ts` publishes any version with a `-` under npm's `next` dist-tag, so `npm install nubis` still gets `latest` while `npm install nubis@next` gets the prerelease. Changesets consumed by a prerelease move to `.changeset/pre/` and come back together in the final changelog. For 0.1.0 itself: `bunx changeset pre exit`, then `bun run version`.
+
 The workflow does nothing until the repository variable `NUBIS_RELEASE_ENABLED` is `true`. Before turning it on:
 
 - [ ] The repository is public. npm only attaches provenance for public repositories.

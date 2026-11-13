@@ -46,7 +46,16 @@ async function run(command: string[], cwd: string): Promise<string> {
 const outDir = await mkdtemp(join(tmpdir(), "nubis-publish-"));
 let published = 0;
 
-for (const dir of (await readdir(join(root, "packages"))).sort()) {
+// Dependencies first, so no published package ever points at a version that
+// isn't on npm yet, even if a later publish fails.
+const ORDER = ["core", "testing", "nubis", "create-nubis"];
+const rank = (dir: string) =>
+	ORDER.includes(dir) ? ORDER.indexOf(dir) : ORDER.length;
+const dirs = (await readdir(join(root, "packages"))).sort(
+	(a, b) => rank(a) - rank(b) || a.localeCompare(b),
+);
+
+for (const dir of dirs) {
 	const cwd = join(root, "packages", dir);
 	const manifest = JSON.parse(
 		await readFile(join(cwd, "package.json"), "utf8"),

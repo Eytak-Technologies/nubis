@@ -15,7 +15,7 @@
     },
     "packages/core": {
       "name": "@nubisjs/core",
-      "version": "0.0.0",
+      "version": "0.1.0-next.0",
       "dependencies": {
         "discord-api-types": "^0.38.59",
       },
@@ -25,7 +25,7 @@
     },
     "packages/create-nubis": {
       "name": "create-nubis",
-      "version": "0.0.0",
+      "version": "0.1.0-next.0",
       "bin": {
         "create-nubis": "./dist/index.js",
       },
@@ -35,7 +35,7 @@
     },
     "packages/nubis": {
       "name": "nubis",
-      "version": "0.0.0",
+      "version": "0.1.0-next.0",
       "bin": {
         "nubis": "./dist/cli.js",
       },
@@ -50,7 +50,7 @@
     },
     "packages/testing": {
       "name": "@nubisjs/testing",
-      "version": "0.0.0",
+      "version": "0.1.0-next.0",
       "dependencies": {
         "@nubisjs/core": "workspace:*",
         "discord-api-types": "^0.38.59",
