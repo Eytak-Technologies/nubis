@@ -72,6 +72,7 @@ export type {
 	Transport,
 } from "./lifecycle";
 export { createLifecycle, DEFAULT_AUTO_DEFER_MS } from "./lifecycle";
+export type { ErrorHandler, ErrorInfo } from "./errors";
 export { NubisError } from "./errors";
 export type {
 	AnyEventDefinition,
@@ -156,6 +157,7 @@ export { option } from "./option";
 export type {
 	ActionRow,
 	ComponentInput,
+	ReplyFile,
 	ReplyInput,
 	ReplyMessage,
 	ReplyOptions,

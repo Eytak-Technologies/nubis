@@ -4,7 +4,7 @@ import {
 	type APIChatInputApplicationCommandInteraction,
 	ApplicationCommandOptionType,
 } from "discord-api-types/v10";
-import { NubisError } from "./errors";
+import { type ErrorHandler, NubisError, reportError } from "./errors";
 import { type Guard, guardContext, runGuards } from "./guard";
 import { type Middleware, runWithMiddleware } from "./middleware";
 import {
@@ -24,6 +24,8 @@ export interface DispatchOptions {
 	readonly guards?: readonly Guard[];
 	/** Wraps every handler, outermost. */
 	readonly middleware?: readonly Middleware[];
+	/** Receives every error a handler throws, after the user is told. */
+	readonly onError?: ErrorHandler;
 }
 
 export type DispatchResult =
@@ -216,6 +218,11 @@ export async function dispatch(
 	} catch (error) {
 		await answerError(lifecycle);
 		await lifecycle.finish();
+		reportError(options.onError, error, {
+			kind: "command",
+			name: `/${path.join(" ")}`,
+			interaction,
+		});
 		return { status: "error", path, error };
 	}
 	const { responded } = await lifecycle.finish();

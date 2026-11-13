@@ -306,4 +306,48 @@ const forged = await handle(
 );
 assert.equal(forged.status, 401);
 
+// Files go out as multipart through the webhook: FormData and Blob on plain Node.
+const uploads = [];
+const filesHandle = nubis.createInteractionHandler({
+	publicKey: hex(await crypto.subtle.exportKey("raw", keyPair.publicKey)),
+	project: {
+		tree: nubis.buildCommandTree([
+			{
+				path: ["ping"],
+				definition: nubis.command({
+					description: "Ping",
+					run: ({ reply }) =>
+						reply({ files: [{ name: "a.txt", data: "hello" }] }),
+				}),
+			},
+		]),
+		components: nubis.createComponentRegistry([]),
+		menus: [],
+	},
+	fetch: async (_url, init) => {
+		uploads.push(await init.body.get("files[0]").text());
+		return new Response("{}");
+	},
+	waitUntil: (work) => uploads.push(work),
+});
+const filesResponse = await filesHandle(
+	new Request("http://bot.test/", {
+		method: "POST",
+		headers: {
+			"x-signature-ed25519": hex(
+				await crypto.subtle.sign(
+					{ name: "Ed25519" },
+					keyPair.privateKey,
+					new TextEncoder().encode(stamp + pingBody),
+				),
+			),
+			"x-signature-timestamp": stamp,
+		},
+		body: pingBody,
+	}),
+);
+assert.equal((await filesResponse.json()).type, 5);
+await uploads.shift();
+assert.deepEqual(uploads, ["hello"]);
+
 console.log(`Node ${process.version}: smoke test passed`);

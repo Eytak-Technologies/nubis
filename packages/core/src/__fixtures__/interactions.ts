@@ -14,6 +14,7 @@ import {
 	InteractionType,
 } from "discord-api-types/v10";
 import type { Scheduler, Transport } from "../lifecycle";
+import type { ReplyFile } from "../reply";
 
 /** A button click or string select, as Discord sends it. */
 export function componentInteraction(
@@ -154,13 +155,28 @@ export function recorder() {
 		}
 	};
 
-	const transport: Transport = {
-		respond: async (response) => record({ type: "respond", response }),
-		editOriginal: async (body) => record({ type: "editOriginal", body }),
-		deleteOriginal: async () => record({ type: "deleteOriginal" }),
-		followUp: async (body) => record({ type: "followUp", body }),
+	/** Files uploaded with each call that had any, by name. */
+	const uploads: { readonly call: string; readonly files: string[] }[] = [];
+	const upload = (call: string, files: readonly ReplyFile[] | undefined) => {
+		if (files?.length) uploads.push({ call, files: files.map((f) => f.name) });
 	};
-	return { calls, replies, modals, trace, transport };
+
+	const transport: Transport = {
+		respond: async (response, files) => {
+			record({ type: "respond", response });
+			upload(`respond:${response.type}`, files);
+		},
+		editOriginal: async (body, files) => {
+			record({ type: "editOriginal", body });
+			upload("editOriginal", files);
+		},
+		deleteOriginal: async () => record({ type: "deleteOriginal" }),
+		followUp: async (body, files) => {
+			record({ type: "followUp", body });
+			upload("followUp", files);
+		},
+	};
+	return { calls, replies, modals, trace, uploads, transport };
 }
 
 /** A scheduler driven by hand, so auto-defer tests don't wait on real time. */

@@ -4,6 +4,7 @@ import {
 	InteractionResponseType,
 } from "discord-api-types/v10";
 import { locate } from "./dispatch";
+import { type ErrorHandler, reportError } from "./errors";
 import { type Guard, guardContext, runGuards } from "./guard";
 import type { Transport } from "./lifecycle";
 import type { Choice } from "./option";
@@ -12,6 +13,7 @@ import type { CommandTree } from "./tree";
 export interface AutocompleteOptions {
 	/** The bot's guards; see DispatchOptions.guards. */
 	readonly guards?: readonly Guard[];
+	readonly onError?: ErrorHandler;
 }
 
 export type AutocompleteResult =
@@ -105,6 +107,11 @@ export async function dispatchAutocomplete(
 		return { status: "handled", path, count: choices.length };
 	} catch (error) {
 		await respond([]);
+		reportError(options.onError, error, {
+			kind: "autocomplete",
+			name: `/${path.join(" ")}`,
+			interaction,
+		});
 		return { status: "error", path, error };
 	}
 }

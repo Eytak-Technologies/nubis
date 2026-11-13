@@ -64,10 +64,27 @@ const slash = (name: string, options?: unknown[]) => ({
 function fakeDiscord(status = 200, body = "{}") {
 	const calls: { method: string; url: string; body: unknown }[] = [];
 	const fetcher = (async (url: string, init?: RequestInit) => {
+		const raw = init?.body;
 		calls.push({
 			method: init?.method ?? "GET",
 			url,
-			body: init?.body ? JSON.parse(String(init.body)) : undefined,
+			body:
+				raw instanceof FormData
+					? {
+							payload: JSON.parse(String(raw.get("payload_json"))),
+							files: await Promise.all(
+								[...raw.entries()]
+									.filter(([key]) => key.startsWith("files["))
+									.map(async ([key, file]) => ({
+										key,
+										name: (file as unknown as File).name,
+										text: await (file as unknown as File).text(),
+									})),
+							),
+						}
+					: raw
+						? JSON.parse(String(raw))
+						: undefined,
 		});
 		return new Response(body, { status });
 	}) as typeof fetch;
@@ -109,6 +126,18 @@ const project: InteractionProject = {
 		{
 			path: ["silent"],
 			definition: command({ description: "Silent", run: () => {} }),
+		},
+		{
+			path: ["export"],
+			definition: command({
+				description: "Export",
+				ephemeral: true,
+				run: ({ reply }) =>
+					reply({
+						content: "Here you go",
+						files: [{ name: "players.csv", data: "name\nalice" }],
+					}),
+			}),
 		},
 	]),
 	components: createComponentRegistry([
@@ -252,6 +281,27 @@ describe("answering", () => {
 		await settled();
 		expect(response.status).toBe(500);
 		expect(results[0]).toMatchObject({ status: "handled" });
+	});
+
+	test("a reply with files acknowledges over HTTP and uploads through the webhook", async () => {
+		const { handle, discord, settled } = handlerWith();
+		const response = await handle(await signed(slash("export")));
+		// Visibility survives the detour: the "thinking…" is ephemeral too.
+		expect(await response.json()).toEqual({ type: 5, data: { flags: 64 } });
+
+		await settled();
+		expect(discord.calls).toHaveLength(1);
+		const [edit] = discord.calls;
+		expect(`${edit?.method} ${edit?.url}`).toBe(
+			"PATCH https://discord.com/api/v10/webhooks/app1/tok/messages/@original",
+		);
+		expect(edit?.body).toMatchObject({
+			payload: {
+				content: "Here you go",
+				attachments: [{ id: 0, filename: "players.csv" }],
+			},
+			files: [{ key: "files[0]", name: "players.csv", text: "name\nalice" }],
+		});
 	});
 
 	test("an expired token explains Discord's 15-minute limit", async () => {

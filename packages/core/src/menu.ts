@@ -11,7 +11,7 @@ import {
 import type { TopLevelSettings } from "./command";
 import type { ModalData } from "./component";
 import { answerError, type DispatchOptions } from "./dispatch";
-import { NubisError } from "./errors";
+import { NubisError, reportError } from "./errors";
 import { type Guard, guardContext, runGuards } from "./guard";
 import { createLifecycle } from "./lifecycle";
 import { type Middleware, runWithMiddleware } from "./middleware";
@@ -232,6 +232,7 @@ export async function dispatchMenu(
 	} catch (error) {
 		await answerError(lifecycle);
 		await lifecycle.finish();
+		reportError(options.onError, error, { kind: "menu", name, interaction });
 		return { status: "error", name, error };
 	}
 	const { responded } = await lifecycle.finish();

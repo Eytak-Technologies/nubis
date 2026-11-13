@@ -32,6 +32,29 @@ export interface ReplyOptions {
 	 * never @everyone, @here or roles, so echoing user input can't mass-ping.
 	 */
 	readonly allowedMentions?: APIAllowedMentions;
+	/** Files to attach, up to ten. Embeds can show them with `attachment://<name>`. */
+	readonly files?: readonly ReplyFile[];
+}
+
+/**
+ * A Blob, as far as Nubis needs one. Core builds without DOM or Node types;
+ * every runtime's Blob and File fit this.
+ */
+export interface BlobLike {
+	readonly size: number;
+	readonly type: string;
+	arrayBuffer(): Promise<ArrayBuffer>;
+}
+
+/** A file attached to a reply. */
+export interface ReplyFile {
+	/** The file name Discord shows, e.g. "report.png". */
+	readonly name: string;
+	/** The contents: bytes, a Blob, or text. */
+	readonly data: Uint8Array | ArrayBuffer | BlobLike | string;
+	/** Alt text for images. */
+	readonly description?: string;
+	readonly contentType?: string;
 }
 
 export type ReplyInput = string | ReplyOptions;
@@ -44,7 +67,11 @@ export interface ReplyMessage {
 	/** `undefined` means "use the default for this interaction". */
 	readonly ephemeral: boolean | undefined;
 	readonly allowedMentions: APIAllowedMentions;
+	readonly files: readonly ReplyFile[] | undefined;
 }
+
+// Discord's limit on attachments per message.
+const MAX_FILES = 10;
 
 export const DEFAULT_ALLOWED_MENTIONS: APIAllowedMentions = {
 	parse: [AllowedMentionsTypes.User],
@@ -64,6 +91,16 @@ export function toMessageBody(
 		...(message.embeds ? { embeds: [...message.embeds] } : {}),
 		allowed_mentions: message.allowedMentions,
 		...(ephemeral ? { flags: EPHEMERAL } : {}),
+		// Each attachment's id matches the files[<id>] part of the upload.
+		...(message.files
+			? {
+					attachments: message.files.map((file, id) => ({
+						id,
+						filename: file.name,
+						...(file.description ? { description: file.description } : {}),
+					})),
+				}
+			: {}),
 	};
 }
 
@@ -107,12 +144,20 @@ export function toActionRows(
 }
 
 export function toReplyMessage(input: ReplyInput): ReplyMessage {
-	const options = typeof input === "string" ? { content: input } : input;
+	const options: ReplyOptions =
+		typeof input === "string" ? { content: input } : input;
+	const files = options.files?.length ? options.files : undefined;
+	if (files && files.length > MAX_FILES) {
+		throw new NubisError(
+			`A message can have at most ${MAX_FILES} files (this one has ${files.length}).`,
+		);
+	}
 	return {
 		content: options.content,
 		components: options.components && toActionRows(options.components),
 		embeds: options.embeds,
 		ephemeral: options.ephemeral,
 		allowedMentions: options.allowedMentions ?? DEFAULT_ALLOWED_MENTIONS,
+		files,
 	};
 }

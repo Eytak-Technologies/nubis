@@ -10,6 +10,7 @@ import {
 	dispatchModal,
 	type MenuDefinition,
 	NubisError,
+	type ReplyFile,
 	type Transport,
 } from "@nubisjs/core";
 import {
@@ -139,8 +140,11 @@ async function discordError(response: Response, what: string): Promise<Error> {
 
 interface WebhookTransportOptions {
 	readonly interaction: APIInteraction;
-	/** Answers the HTTP request with the initial response. */
-	readonly respondInitial: (response: APIInteractionResponse) => boolean;
+	/**
+	 * Sends the initial response: as the HTTP reply when it's still open,
+	 * otherwise through the callback endpoint.
+	 */
+	readonly respond: (response: APIInteractionResponse) => Promise<void>;
 	readonly api: string;
 	readonly fetch: typeof fetch;
 }
@@ -149,6 +153,33 @@ interface WebhookTransportOptions {
  * Answers the first response in the HTTP reply and everything after it
  * through the interaction's webhook. Neither needs the bot token.
  */
+/** A JSON body, or multipart with `payload_json` and `files[n]` when there are files. */
+function requestBody(
+	body: unknown,
+	files: readonly ReplyFile[] | undefined,
+): { body?: string | FormData; headers: Record<string, string> } {
+	if (body === undefined) return { headers: {} };
+	if (!files?.length) {
+		return {
+			body: JSON.stringify(body),
+			headers: { "content-type": "application/json" },
+		};
+	}
+	const form = new FormData();
+	form.append("payload_json", JSON.stringify(body));
+	files.forEach((file, index) => {
+		const blob =
+			file.data instanceof Blob
+				? file.data
+				: new Blob([file.data as Uint8Array], {
+						type: file.contentType ?? "application/octet-stream",
+					});
+		form.append(`files[${index}]`, blob, file.name);
+	});
+	// fetch sets the multipart boundary itself.
+	return { body: form, headers: {} };
+}
+
 function webhookTransport(options: WebhookTransportOptions): Transport {
 	const { interaction, api } = options;
 	const webhook = `${api}/webhooks/${interaction.application_id}/${interaction.token}`;
@@ -157,32 +188,53 @@ function webhookTransport(options: WebhookTransportOptions): Transport {
 		url: string,
 		what: string,
 		body?: unknown,
+		files?: readonly ReplyFile[],
 	) => {
-		const response = await options.fetch(url, {
-			method,
-			headers: body ? { "content-type": "application/json" } : {},
-			body: body ? JSON.stringify(body) : undefined,
-		});
+		const request = requestBody(body, files);
+		const response = await options.fetch(url, { method, ...request });
 		if (!response.ok) throw await discordError(response, what);
 	};
+	const editOriginal = (
+		body: APIInteractionResponseCallbackData,
+		files?: readonly ReplyFile[],
+	) =>
+		call(
+			"PATCH",
+			`${webhook}/messages/@original`,
+			"Editing the reply",
+			body,
+			files,
+		);
 
 	return {
-		respond: async (response) => {
-			if (options.respondInitial(response)) return;
-			// The HTTP request was already answered: use the callback endpoint.
-			await call(
-				"POST",
-				`${api}/interactions/${interaction.id}/${interaction.token}/callback`,
-				"Responding",
-				response,
-			);
+		respond: async (response, files) => {
+			if (files?.length && "data" in response) {
+				// Files can't ride in a JSON HTTP response: acknowledge first,
+				// then put the message (files and all) in place with an edit.
+				const updating =
+					response.type === InteractionResponseType.UpdateMessage;
+				const flags = (response.data as { flags?: number } | undefined)?.flags;
+				await options.respond(
+					updating
+						? { type: InteractionResponseType.DeferredMessageUpdate }
+						: {
+								type: InteractionResponseType.DeferredChannelMessageWithSource,
+								data: flags ? { flags } : {},
+							},
+				);
+				await editOriginal(
+					response.data as APIInteractionResponseCallbackData,
+					files,
+				);
+				return;
+			}
+			await options.respond(response);
 		},
-		editOriginal: (body: APIInteractionResponseCallbackData) =>
-			call("PATCH", `${webhook}/messages/@original`, "Editing the reply", body),
+		editOriginal,
 		deleteOriginal: () =>
 			call("DELETE", `${webhook}/messages/@original`, "Deleting the reply"),
-		followUp: (body: APIInteractionResponseCallbackData) =>
-			call("POST", webhook, "Sending a follow-up", body),
+		followUp: (body, files) =>
+			call("POST", webhook, "Sending a follow-up", body, files),
 	};
 }
 
@@ -275,11 +327,22 @@ export function createInteractionHandler(
 			interaction,
 			api,
 			fetch: fetcher,
-			respondInitial: (response) => {
-				if (answered) return false;
-				answered = true;
-				answer(response);
-				return true;
+			respond: async (response) => {
+				if (!answered) {
+					answered = true;
+					answer(response);
+					return;
+				}
+				// The HTTP request was already answered: use the callback endpoint.
+				const callback = await fetcher(
+					`${api}/interactions/${interaction.id}/${interaction.token}/callback`,
+					{
+						method: "POST",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify(response),
+					},
+				);
+				if (!callback.ok) throw await discordError(callback, "Responding");
 			},
 		});
 

@@ -1,4 +1,5 @@
 import type { GatewayDispatchPayload } from "discord-api-types/v10";
+import { type ErrorHandler, reportError } from "./errors";
 
 type DispatchData = { [P in GatewayDispatchPayload as P["t"]]: P["d"] };
 
@@ -85,7 +86,7 @@ export async function dispatchEvent(
 	registry: EventRegistry,
 	type: string,
 	data: unknown,
-	options: { readonly shardId?: number } = {},
+	options: { readonly shardId?: number; readonly onError?: ErrorHandler } = {},
 ): Promise<EventDispatchResult> {
 	const name = toEventName(type);
 	const handlers = registry.get(name) ?? [];
@@ -104,5 +105,8 @@ export async function dispatchEvent(
 	const errors = results.flatMap((result) =>
 		result.status === "rejected" ? [result.reason] : [],
 	);
+	for (const error of errors) {
+		reportError(options.onError, error, { kind: "event", name });
+	}
 	return { name, handled: results.length - errors.length, errors };
 }

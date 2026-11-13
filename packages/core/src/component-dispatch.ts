@@ -9,7 +9,7 @@ import {
 } from "./component";
 import { decodeCustomId } from "./custom-id";
 import { answerError } from "./dispatch";
-import { NubisError } from "./errors";
+import { type ErrorHandler, NubisError, reportError } from "./errors";
 import { type Guard, guardContext, runGuards } from "./guard";
 import { type Middleware, runWithMiddleware } from "./middleware";
 import { createLifecycle, type Scheduler, type Transport } from "./lifecycle";
@@ -52,6 +52,8 @@ export interface ComponentDispatchOptions {
 	/** Run before every component and modal handler, before their own guards. */
 	readonly guards?: readonly Guard[];
 	readonly middleware?: readonly Middleware[];
+	/** Receives every error a handler throws, after the user is told. */
+	readonly onError?: ErrorHandler;
 }
 
 async function route(
@@ -148,6 +150,11 @@ async function route(
 	} catch (error) {
 		await answerError(lifecycle);
 		await lifecycle.finish();
+		reportError(options.onError, error, {
+			kind,
+			name: runtime.id,
+			interaction,
+		});
 		return { status: "error", id: runtime.id, error };
 	}
 

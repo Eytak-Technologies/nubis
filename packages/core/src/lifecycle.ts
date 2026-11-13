@@ -7,6 +7,7 @@ import {
 import { NubisError } from "./errors";
 import { settleStateWrites } from "./store";
 import {
+	type ReplyFile,
 	type ReplyInput,
 	type ReplyMessage,
 	toMessageBody,
@@ -19,12 +20,24 @@ import {
  * HTTP response. Everything about *when* to call which lives in core.
  */
 export interface Transport {
-	/** The interaction callback. Exactly once, within three seconds. */
-	respond(response: APIInteractionResponse): Promise<void>;
+	/**
+	 * The interaction callback. Exactly once, within three seconds. `files`
+	 * are uploaded alongside; the body's `attachments` list them by index.
+	 */
+	respond(
+		response: APIInteractionResponse,
+		files?: readonly ReplyFile[],
+	): Promise<void>;
 	/** Edits the message the initial response created or acknowledged. */
-	editOriginal(body: APIInteractionResponseCallbackData): Promise<void>;
+	editOriginal(
+		body: APIInteractionResponseCallbackData,
+		files?: readonly ReplyFile[],
+	): Promise<void>;
 	deleteOriginal(): Promise<void>;
-	followUp(body: APIInteractionResponseCallbackData): Promise<void>;
+	followUp(
+		body: APIInteractionResponseCallbackData,
+		files?: readonly ReplyFile[],
+	): Promise<void>;
 }
 
 /** Runs `run` after `ms`; returns a function that cancels it. Swappable in tests. */
@@ -146,27 +159,39 @@ export function createLifecycle(
 				switch (phase.type) {
 					case "initial":
 						cancelTimer();
-						await transport.respond({
-							type: InteractionResponseType.ChannelMessageWithSource,
-							data: toMessageBody(message, ephemeral),
-						});
+						await transport.respond(
+							{
+								type: InteractionResponseType.ChannelMessageWithSource,
+								data: toMessageBody(message, ephemeral),
+							},
+							message.files,
+						);
 						phase = { type: "replied" };
 						return;
 					case "deferred":
 						if (phase.ephemeral === ephemeral) {
-							await transport.editOriginal(toMessageBody(message, ephemeral));
+							await transport.editOriginal(
+								toMessageBody(message, ephemeral),
+								message.files,
+							);
 						} else {
 							// Visibility is fixed when deferring. Swap "thinking…" for a
 							// follow-up with the visibility this reply asked for.
 							await transport.deleteOriginal();
-							await transport.followUp(toMessageBody(message, ephemeral));
+							await transport.followUp(
+								toMessageBody(message, ephemeral),
+								message.files,
+							);
 						}
 						phase = { type: "replied" };
 						return;
 					case "modal":
 						throw afterModal();
 					default:
-						await transport.followUp(toMessageBody(message, ephemeral));
+						await transport.followUp(
+							toMessageBody(message, ephemeral),
+							message.files,
+						);
 				}
 			}),
 
@@ -177,19 +202,20 @@ export function createLifecycle(
 						"update() edits the message a component is on; commands have none.",
 					);
 				}
-				const body = toMessageBody(toReplyMessage(input), false);
+				const message = toReplyMessage(input);
+				const body = toMessageBody(message, false);
 				switch (phase.type) {
 					case "initial":
 						cancelTimer();
-						await transport.respond({
-							type: InteractionResponseType.UpdateMessage,
-							data: body,
-						});
+						await transport.respond(
+							{ type: InteractionResponseType.UpdateMessage, data: body },
+							message.files,
+						);
 						phase = { type: "updated" };
 						return;
 					case "deferred-update":
 					case "updated":
-						await transport.editOriginal(body);
+						await transport.editOriginal(body, message.files);
 						phase = { type: "updated" };
 						return;
 					case "modal":
@@ -207,7 +233,10 @@ export function createLifecycle(
 				if (phase.type === "replied" || phase.type === "deferred") {
 					const ephemeral =
 						phase.type === "deferred" ? phase.ephemeral : ephemeralOf(message);
-					await transport.editOriginal(toMessageBody(message, ephemeral));
+					await transport.editOriginal(
+						toMessageBody(message, ephemeral),
+						message.files,
+					);
 					phase = { type: "replied" };
 					return;
 				}
