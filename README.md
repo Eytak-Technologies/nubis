@@ -2,7 +2,7 @@
 
 **The Discord bot framework that feels like building a modern web app.** A file is a command, types come from your definitions, components carry typed state, and tests run without Discord.
 
-> Nubis is in active development and not released yet. The API below works today; the dev server and gateway are next.
+> Nubis is in active development and not released yet. Everything below works today; the first release, 0.1.0, is on its way.
 
 ```ts
 // commands/ban.ts → /ban

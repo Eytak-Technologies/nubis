@@ -48,6 +48,14 @@ describe("createProject", () => {
 
 		expect((await manifest(bun.dir)).scripts.test).toBe("bun test");
 		expect((await manifest(npm.dir)).scripts.test).toBe("vitest run");
+		// Every script runs a nubis command that exists.
+		for (const project of [bun, npm]) {
+			const { scripts } = await manifest(project.dir);
+			expect(scripts.dev).toBe("nubis dev");
+			expect(scripts.start).toBe("nubis start");
+			expect(scripts.sync).toBe("nubis sync --global");
+			expect(scripts.build).toBeUndefined();
+		}
 		expect((await manifest(npm.dir)).devDependencies.vitest).toBeDefined();
 		expect(
 			await readFile(join(bun.dir, "tests/commands.test.ts"), "utf8"),

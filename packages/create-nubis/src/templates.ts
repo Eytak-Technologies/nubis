@@ -25,7 +25,8 @@ export function templateFiles(
 			type: "module",
 			scripts: {
 				dev: "nubis dev",
-				build: "nubis build",
+				start: "nubis start",
+				sync: "nubis sync --global",
 				test: bun ? "bun test" : "vitest run",
 				typecheck: "tsc --noEmit",
 			},
@@ -76,6 +77,10 @@ A Discord bot built with [Nubis](https://github.com/Eytak-Technologies/nubis).
 2. Copy \`.env.example\` to \`.env\` and fill it in.
 3. Run the tests: \`${run} test\`
 4. Start the bot: \`${run} dev\`
+
+## Deploying
+
+\`${run} sync\` registers your commands everywhere the bot is installed; run it when commands change. \`${run} start\` runs the bot.
 
 ## Layout
 
