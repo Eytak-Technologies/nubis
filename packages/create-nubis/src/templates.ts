@@ -50,6 +50,14 @@ export function templateFiles(
 			include: ["**/*.ts"],
 		}),
 
+		"nubis.config.ts": `import { defineConfig } from "nubis";
+
+// Settings for the whole bot. Every key is optional; see the Nubis README.
+export default defineConfig({
+	presence: { activity: { type: "watching", name: "for /ping" } },
+});
+`,
+
 		".gitignore": "node_modules\ndist\n.env\n",
 
 		".env.example": `# From https://discord.com/developers/applications, under your app.
@@ -78,6 +86,7 @@ A Discord bot built with [Nubis](https://github.com/Eytak-Technologies/nubis).
 | \`commands/fun/roll.ts\` | \`/fun roll\`: folders become subcommands; \`_folder.ts\` describes them |
 | \`commands/counter.ts\`, \`components/counter.ts\` | A button that keeps its count in typed state |
 | \`events/ready.ts\` | Runs when the bot connects |
+| \`nubis.config.ts\` | Bot-wide settings: presence, intents, guards, error handling |
 | \`tests/\` | Tests that run without Discord, using \`nubis/testing\` |
 `,
 

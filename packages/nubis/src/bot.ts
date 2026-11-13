@@ -5,6 +5,7 @@ import { WebSocketManager, WebSocketShardEvents } from "@discordjs/ws";
 import {
 	type APIInteraction,
 	type GatewayDispatchPayload,
+	type GatewayPresenceUpdateData,
 	GatewayDispatchEvents,
 } from "discord-api-types/v10";
 import { intentsFor } from "./intents";
@@ -27,6 +28,8 @@ export interface BotOptions {
 	readonly project: Project;
 	/** Intents beyond what the project's events need, e.g. MessageContent. */
 	readonly intents?: number;
+	/** The status and activity shown when the bot connects. */
+	readonly presence?: GatewayPresenceUpdateData;
 	/** Guards, middleware and timing for every interaction. */
 	readonly dispatch?: RouteOptions;
 	/** Every handler error, from interactions and events. */
@@ -36,6 +39,7 @@ export interface BotOptions {
 	readonly gateway?: (options: {
 		intents: number;
 		rest: RestLike;
+		presence: GatewayPresenceUpdateData | null;
 	}) => GatewayLike;
 }
 
@@ -58,12 +62,14 @@ export function createBot(options: BotOptions): Bot {
 	const rest =
 		options.rest ?? new REST({ version: "10" }).setToken(options.token);
 	const intents = intentsFor(options.project.events, options.intents);
+	const presence = options.presence ?? null;
 	const gateway = options.gateway
-		? options.gateway({ intents, rest })
+		? options.gateway({ intents, rest, presence })
 		: (new WebSocketManager({
 				token: options.token,
 				intents,
 				rest: rest as REST,
+				initialPresence: presence,
 			}) as unknown as GatewayLike);
 	const api = new API(rest as never) as NubisApi;
 	const routeOptions: RouteOptions = {

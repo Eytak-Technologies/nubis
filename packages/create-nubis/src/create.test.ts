@@ -33,6 +33,7 @@ describe("createProject", () => {
 			"commands/ping.ts",
 			"components/counter.ts",
 			"events/ready.ts",
+			"nubis.config.ts",
 			"package.json",
 			"tests/commands.test.ts",
 			"tsconfig.json",

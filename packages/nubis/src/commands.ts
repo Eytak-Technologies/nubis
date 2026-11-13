@@ -1,11 +1,19 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { watch } from "node:fs";
+import { createServer, type Server } from "node:http";
 import { relative, sep } from "node:path";
+import { API } from "@discordjs/core/http-only";
 import { REST } from "@discordjs/rest";
+import type { ErrorHandler, NubisApi } from "@nubisjs/core";
 import { createBot } from "./bot";
+import { intentBits, type NubisConfig, presenceData } from "./config";
+import { loadConfig } from "./config-loader";
 import { discordEnv, loadEnv } from "./env";
+import { createInteractionHandler } from "./http";
 import { intentNames, PRIVILEGED_INTENTS } from "./intents";
-import { loadProject } from "./loader";
+import { loadProject, type Project } from "./loader";
+import { toNodeListener } from "./node-listener";
+import type { RouteOptions } from "./route";
 import { describePlan, hasChanges, syncCommands } from "./sync";
 
 const log = (message: string) => console.log(`[nubis] ${message}`);
@@ -14,11 +22,35 @@ const fail = (error: unknown) =>
 		`[nubis] ${error instanceof Error ? error.message : String(error)}`,
 	);
 
+const logErrors: ErrorHandler = (error, info) => {
+	console.error(`[nubis] ${info.kind} ${info.name} threw:`, error);
+};
+
 async function setup(cwd: string) {
 	await loadEnv(cwd);
 	const env = discordEnv();
 	const rest = new REST({ version: "10" }).setToken(env.token);
-	return { env, rest };
+	const loaded = await loadConfig(cwd);
+	return {
+		env,
+		rest,
+		...loaded,
+		devGuildId: env.devGuildId ?? loaded.config.devGuildId,
+	};
+}
+
+/** The dispatch options a config asks for, shared by both transports. */
+export function routeOptionsFor(
+	config: NubisConfig,
+	api: NubisApi,
+): RouteOptions {
+	return {
+		api,
+		guards: config.guards,
+		middleware: config.middleware,
+		autoDeferMs: config.autoDeferMs,
+		onError: config.onError ?? logErrors,
+	};
 }
 
 /** `nubis sync [--global] [--dry-run]` */
@@ -26,15 +58,15 @@ export async function runSync(
 	cwd: string,
 	args: readonly string[],
 ): Promise<number> {
-	const { env, rest } = await setup(cwd);
+	const { env, rest, root, devGuildId } = await setup(cwd);
 	const global = args.includes("--global");
-	const guildId = global ? undefined : env.devGuildId;
+	const guildId = global ? undefined : devGuildId;
 	if (!global && !guildId) {
 		throw new Error(
-			"Set DISCORD_DEV_GUILD_ID to sync to your test server, or pass --global to register commands everywhere.",
+			"Set DISCORD_DEV_GUILD_ID (or devGuildId in nubis.config.ts) to sync to your test server, or pass --global to register commands everywhere.",
 		);
 	}
-	const project = await loadProject(cwd);
+	const project = await loadProject(root);
 	const result = await syncCommands({
 		rest,
 		applicationId: env.applicationId,
@@ -51,16 +83,72 @@ export async function runSync(
 	return 0;
 }
 
+/** Serves the project as an Interactions Endpoint URL. Exported for tests. */
+export function createHttpServer(options: {
+	readonly publicKey: string;
+	readonly project: Project;
+	readonly config: NubisConfig;
+	readonly api: NubisApi;
+}): Server {
+	const path = options.config.http?.path ?? "/interactions";
+	const handle = createInteractionHandler({
+		publicKey: options.publicKey,
+		project: options.project,
+		dispatch: routeOptionsFor(options.config, options.api),
+	});
+	return createServer(
+		toNodeListener(async (request) =>
+			new URL(request.url).pathname === path
+				? handle(request)
+				: new Response("Not found", { status: 404 }),
+		),
+	);
+}
+
 /** `nubis start`: runs the bot until it's stopped. */
 export async function runStart(cwd: string): Promise<number> {
-	const { env } = await setup(cwd);
-	const project = await loadProject(cwd);
+	const { env, rest, config, root } = await setup(cwd);
+	const project = await loadProject(root);
+	const counts = `${project.tree.size} commands, ${project.components.size} components, ${project.menus.length} menus`;
+
+	if (config.transport === "http") {
+		if (!env.publicKey) {
+			throw new Error(
+				"The HTTP transport needs DISCORD_PUBLIC_KEY to verify Discord's requests.",
+			);
+		}
+		if (project.events.size > 0) {
+			log(
+				"HTTP bots don't receive gateway events; the handlers in events/ won't run.",
+			);
+		}
+		const port = config.http?.port ?? Number(process.env.PORT ?? 3000);
+		const server = createHttpServer({
+			publicKey: env.publicKey,
+			project,
+			config,
+			api: new API(rest) as NubisApi,
+		});
+		server.listen(port);
+		log(
+			`Listening on http://localhost:${port}${config.http?.path ?? "/interactions"} (${counts}). Set it as the Interactions Endpoint URL in the Developer Portal.`,
+		);
+		return new Promise<number>(() => {});
+	}
+
 	const bot = createBot({
 		token: env.token,
 		project,
-		onError: (error, info) => {
-			console.error(`[nubis] ${info.kind} ${info.name} threw:`, error);
+		rest,
+		intents: intentBits(config.intents),
+		presence: presenceData(config.presence),
+		// The bot adds its own `api` client to these.
+		dispatch: {
+			guards: config.guards,
+			middleware: config.middleware,
+			autoDeferMs: config.autoDeferMs,
 		},
+		onError: config.onError ?? logErrors,
 	});
 	const privileged = intentNames(bot.intents & PRIVILEGED_INTENTS);
 	if (privileged.length > 0) {
@@ -75,9 +163,7 @@ export async function runStart(cwd: string): Promise<number> {
 	process.once("SIGINT", stop);
 	process.once("SIGTERM", stop);
 	await bot.start();
-	log(
-		`Online: ${project.tree.size} commands, ${project.components.size} components, ${project.menus.length} menus.`,
-	);
+	log(`Online: ${counts}.`);
 	// The gateway connection keeps the process alive.
 	return new Promise<number>(() => {});
 }
@@ -86,14 +172,14 @@ const IGNORED = ["node_modules", ".git", "dist", ".turbo"];
 
 /**
  * `nubis dev`: syncs commands to the test server and runs the bot, then does
- * both again whenever a file changes. Each run is a fresh process, so edits
- * to helpers are picked up too, not just the files the loader imports.
+ * both again whenever a file changes, nubis.config.ts included. Each run is
+ * a fresh process, so edits to helpers are picked up too.
  */
 export async function runDev(cwd: string): Promise<number> {
-	const { env, rest } = await setup(cwd);
-	if (!env.devGuildId) {
+	const { env, rest, devGuildId } = await setup(cwd);
+	if (!devGuildId) {
 		throw new Error(
-			"nubis dev needs DISCORD_DEV_GUILD_ID: commands go to your test server, where they show up instantly.",
+			"nubis dev needs a test server: set DISCORD_DEV_GUILD_ID (or devGuildId in nubis.config.ts). Commands go there and show up instantly.",
 		);
 	}
 	let child: ChildProcess | undefined;
@@ -108,12 +194,13 @@ export async function runDev(cwd: string): Promise<number> {
 	const cycle = async () => {
 		await stopChild();
 		try {
-			const project = await loadProject(cwd, { version: Date.now() });
+			const { root } = await loadConfig(cwd);
+			const project = await loadProject(root, { version: Date.now() });
 			const result = await syncCommands({
 				rest,
 				applicationId: env.applicationId,
 				project,
-				guildId: env.devGuildId,
+				guildId: devGuildId,
 			});
 			if (result.applied)
 				log(`Synced commands:\n${describePlan(result.plan).join("\n")}`);

@@ -430,4 +430,14 @@ await new Promise((resolve) => setTimeout(resolve, 20));
 assert.ok(restCalls.includes("post /interactions/i1/tok/callback"));
 await bot.stop();
 
+// nubis.config loads and validates on plain Node.
+const loadedConfig = await nodeEntry.loadConfig(
+	new URL("./fixtures/project", import.meta.url).pathname,
+);
+assert.equal(loadedConfig.config.presence.activity.name, "the smoke test");
+assert.equal(
+	nodeEntry.presenceData(loadedConfig.config.presence).activities[0].type,
+	3, // Watching
+);
+
 console.log(`Node ${process.version}: smoke test passed`);
