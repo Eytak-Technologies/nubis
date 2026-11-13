@@ -37,7 +37,19 @@
       },
       "dependencies": {
         "@nubisjs/core": "workspace:*",
+        "@nubisjs/testing": "workspace:*",
         "discord-api-types": "^0.38.59",
+      },
+    },
+    "packages/testing": {
+      "name": "@nubisjs/testing",
+      "version": "0.0.0",
+      "dependencies": {
+        "@nubisjs/core": "workspace:*",
+        "discord-api-types": "^0.38.59",
+      },
+      "devDependencies": {
+        "zod": "^4.6.7",
       },
     },
   },
@@ -65,6 +77,8 @@
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.6.7", "", { "os": "win32", "cpu": "x64" }, "sha512-uYfH+n+IAtVz3lh7m6JxdjxfJ3WCvAJDE3spHIUbU955V42oKymlhiQiu92fAhXZb7KOjvRcrfImySQbc1MFFg=="],
 
     "@nubisjs/core": ["@nubisjs/core@workspace:packages/core"],
+
+    "@nubisjs/testing": ["@nubisjs/testing@workspace:packages/testing"],
 
     "@turbo/darwin-64": ["@turbo/darwin-64@2.11.11", "", { "os": "darwin", "cpu": "x64" }, "sha512-HMMeUIEAsmyIbSYn1ySvF/4gGMa0joiTMq4dQDuloIAnOpbtFT3JEiVsYnASdTWDXvplbRbZlqjU1EBeSR9G1A=="],
 

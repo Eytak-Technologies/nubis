@@ -350,4 +350,16 @@ assert.equal((await filesResponse.json()).type, 5);
 await uploads.shift();
 assert.deepEqual(uploads, ["hello"]);
 
+// nubis/testing runs commands without Discord on plain Node.
+const testing = await import("../packages/nubis/dist/testing.js");
+const greet = nubis.command({
+	description: "Greet",
+	options: { who: nubis.option.user({ required: true }) },
+	run: ({ options, reply }) => reply(`hi ${options.who.username}`),
+});
+const tested = await testing
+	.testCommand(greet)
+	.run({ who: testing.fake.user("alice") });
+assert.deepEqual(tested.replies, ["hi alice"]);
+
 console.log(`Node ${process.version}: smoke test passed`);

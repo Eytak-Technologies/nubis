@@ -10,7 +10,8 @@ The Discord bot framework that feels like building a modern web app: file-based 
 | --- | --- |
 | [`nubis`](packages/nubis) | The framework and the `nubis` CLI |
 | [`create-nubis`](packages/create-nubis) | Project scaffolder (`npx create-nubis`) |
-| [`@nubisjs/core`](packages/core) | Command and option definitions, type inference |
+| [`@nubisjs/core`](packages/core) | Commands, components, modals, guards, dispatch |
+| [`@nubisjs/testing`](packages/testing) | Test bots without Discord (also `nubis/testing`) |
 
 ## Development
 
