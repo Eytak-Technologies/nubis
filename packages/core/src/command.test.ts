@@ -50,6 +50,8 @@ describe("command", () => {
 			options: { days: 7, reason: undefined, loud: undefined },
 			interaction: chatInput("ban"),
 			showModal: async () => {},
+			editReply: async () => {},
+			defer: async () => {},
 			reply: async (message) => {
 				replies.push(typeof message === "string" ? message : "");
 			},

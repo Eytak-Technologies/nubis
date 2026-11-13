@@ -4,24 +4,48 @@ import {
 	type APIChatInputApplicationCommandInteraction,
 	ApplicationCommandOptionType,
 } from "discord-api-types/v10";
-import type { ModalData } from "./component";
 import { NubisError } from "./errors";
+import {
+	createLifecycle,
+	type Lifecycle,
+	type Scheduler,
+	type Transport,
+} from "./lifecycle";
 import type { OptionMap, ResolvedOptions } from "./option";
-import { type ReplyMessage, toReplyMessage } from "./reply";
 import type { CommandLeaf, CommandTree } from "./tree";
 
-/** How handlers answer. The gateway and HTTP transports each provide one. */
-export interface Responder {
-	reply(message: ReplyMessage): Promise<void>;
-	/** Edits the message a component is on. Only valid for component interactions. */
-	update(message: ReplyMessage): Promise<void>;
-	/** Responds with a modal. Only valid as the first response. */
-	showModal(modal: ModalData): Promise<void>;
+export interface DispatchOptions {
+	/** See LifecycleOptions.autoDeferMs. */
+	readonly autoDeferMs?: number | false;
+	readonly schedule?: Scheduler;
 }
 
 export type DispatchResult =
-	| { readonly status: "handled"; readonly path: readonly string[] }
-	| { readonly status: "unknown"; readonly path: readonly string[] };
+	| {
+			readonly status: "handled";
+			readonly path: readonly string[];
+			/** False when the handler finished without answering; Discord shows "did not respond". */
+			readonly responded: boolean;
+	  }
+	| { readonly status: "unknown"; readonly path: readonly string[] }
+	| {
+			readonly status: "error";
+			readonly path: readonly string[];
+			readonly error: unknown;
+	  };
+
+export const ERROR_MESSAGE = "Something went wrong. Please try again.";
+export const UNKNOWN_COMMAND_MESSAGE =
+	"This command isn't available anymore. Discord may still be catching up.";
+
+/** Tells the user something broke, if the interaction can still be answered. */
+export async function answerError(lifecycle: Lifecycle): Promise<void> {
+	try {
+		await lifecycle.reply({ content: ERROR_MESSAGE, ephemeral: true });
+	} catch {
+		// Answered with a modal, or Discord rejected the call: nothing more to say.
+	}
+}
 
 interface Located {
 	readonly leaf: CommandLeaf | undefined;
@@ -101,20 +125,48 @@ function resolveOptions(
 	return values as ResolvedOptions<OptionMap>;
 }
 
-/** Routes a slash command interaction to the command that handles it. */
+/**
+ * Routes a slash command interaction to the command that handles it, and
+ * answers Discord on time: "thinking…" after two seconds of silence, follow-ups
+ * for later replies, and an error message if the handler throws.
+ */
 export async function dispatch(
 	tree: CommandTree,
 	interaction: APIChatInputApplicationCommandInteraction,
-	responder: Responder,
+	transport: Transport,
+	options: DispatchOptions = {},
 ): Promise<DispatchResult> {
-	const { leaf, path, options } = locate(tree, interaction);
-	if (leaf === undefined) return { status: "unknown", path };
-
-	await leaf.definition.run({
-		options: resolveOptions(leaf, options, interaction),
-		interaction,
-		reply: (message) => responder.reply(toReplyMessage(message)),
-		showModal: (modal) => responder.showModal(modal),
+	const { leaf, path, options: given } = locate(tree, interaction);
+	const lifecycle = createLifecycle(transport, {
+		kind: "command",
+		ephemeral: leaf?.definition.ephemeral,
+		autoDeferMs: options.autoDeferMs,
+		schedule: options.schedule,
 	});
-	return { status: "handled", path };
+
+	if (leaf === undefined) {
+		await lifecycle.reply({
+			content: UNKNOWN_COMMAND_MESSAGE,
+			ephemeral: true,
+		});
+		await lifecycle.finish();
+		return { status: "unknown", path };
+	}
+
+	try {
+		await leaf.definition.run({
+			options: resolveOptions(leaf, given, interaction),
+			interaction,
+			reply: lifecycle.reply,
+			editReply: lifecycle.editReply,
+			defer: lifecycle.defer,
+			showModal: lifecycle.showModal,
+		});
+	} catch (error) {
+		await answerError(lifecycle);
+		await lifecycle.finish();
+		return { status: "error", path, error };
+	}
+	const { responded } = await lifecycle.finish();
+	return { status: "handled", path, responded };
 }

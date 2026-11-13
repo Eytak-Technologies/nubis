@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	ComponentType,
+	InteractionResponseType,
 	ApplicationCommandOptionType as Opt,
 } from "discord-api-types/v10";
 import { chatInput, recorder } from "./__fixtures__/interactions";
@@ -12,6 +13,8 @@ import {
 	NubisError,
 	option,
 	stateOf,
+	DEFAULT_ALLOWED_MENTIONS,
+	ERROR_MESSAGE,
 } from "./index";
 
 describe("dispatch", () => {
@@ -30,7 +33,7 @@ describe("dispatch", () => {
 				}),
 			},
 		]);
-		const { replies, responder } = recorder();
+		const { replies, transport } = recorder();
 
 		const result = await dispatch(
 			tree,
@@ -39,10 +42,14 @@ describe("dispatch", () => {
 					"42": { id: "42", username: "alice", discriminator: "0" } as never,
 				},
 			}),
-			responder,
+			transport,
 		);
 
-		expect(result).toEqual({ status: "handled", path: ["ban"] });
+		expect(result).toEqual({
+			status: "handled",
+			path: ["ban"],
+			responded: true,
+		});
 		expect(replies).toEqual(["alice: no reason"]);
 	});
 
@@ -60,7 +67,7 @@ describe("dispatch", () => {
 			{ path: ["config", "set"], definition: leaf("set") },
 			{ path: ["config", "role", "add"], definition: leaf("add") },
 		]);
-		const { responder } = recorder();
+		const { transport } = recorder();
 		const value = [{ type: Opt.String, name: "value", value: "x" }] as const;
 
 		await dispatch(
@@ -68,7 +75,7 @@ describe("dispatch", () => {
 			chatInput("config", [
 				{ type: Opt.Subcommand, name: "set", options: [...value] },
 			]),
-			responder,
+			transport,
 		);
 		const result = await dispatch(
 			tree,
@@ -79,27 +86,28 @@ describe("dispatch", () => {
 					options: [{ type: Opt.Subcommand, name: "add", options: [...value] }],
 				},
 			]),
-			responder,
+			transport,
 		);
 
 		expect(seen).toEqual(["set=x", "add=x"]);
 		expect(result).toEqual({
 			status: "handled",
 			path: ["config", "role", "add"],
+			responded: false,
 		});
 	});
 
 	test("reports unknown commands instead of throwing", async () => {
-		const { responder } = recorder();
+		const { transport } = recorder();
 		expect(
-			await dispatch(buildCommandTree([]), chatInput("gone"), responder),
+			await dispatch(buildCommandTree([]), chatInput("gone"), transport),
 		).toEqual({
 			status: "unknown",
 			path: ["gone"],
 		});
 	});
 
-	test("explains a missing required option", async () => {
+	test("explains a missing required option and tells the user", async () => {
 		const tree = buildCommandTree([
 			{
 				path: ["echo"],
@@ -110,10 +118,14 @@ describe("dispatch", () => {
 				}),
 			},
 		]);
-		const { responder } = recorder();
-		const run = dispatch(tree, chatInput("echo"), responder);
-		await expect(run).rejects.toThrow(NubisError);
-		await expect(run).rejects.toThrow(/out of sync/);
+		const { replies, transport } = recorder();
+		const result = await dispatch(tree, chatInput("echo"), transport);
+
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.error).toBeInstanceOf(NubisError);
+		expect(String(result.error)).toMatch(/out of sync/);
+		expect(replies).toEqual([ERROR_MESSAGE]);
 	});
 
 	test("replies can carry components, packed into rows", async () => {
@@ -137,14 +149,26 @@ describe("dispatch", () => {
 				}),
 			},
 		]);
-		const { messages, responder } = recorder();
-		await dispatch(tree, chatInput("ask"), responder);
+		const { calls, transport } = recorder();
+		await dispatch(tree, chatInput("ask"), transport);
 
-		expect(messages[0]?.message.ephemeral).toBe(true);
-		expect(messages[0]?.message.components).toEqual([
+		expect(calls).toEqual([
 			{
-				type: ComponentType.ActionRow,
-				components: [confirm({ id: "42" })],
+				type: "respond",
+				response: {
+					type: InteractionResponseType.ChannelMessageWithSource,
+					data: {
+						content: "Sure?",
+						components: [
+							{
+								type: ComponentType.ActionRow,
+								components: [confirm({ id: "42" })],
+							},
+						],
+						allowed_mentions: DEFAULT_ALLOWED_MENTIONS,
+						flags: 64,
+					},
+				},
 			},
 		]);
 	});

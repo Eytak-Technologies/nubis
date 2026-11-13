@@ -1,8 +1,12 @@
 import {
 	type APIActionRowComponent,
+	type APIAllowedMentions,
+	type APIEmbed,
+	type APIInteractionResponseCallbackData,
 	type APIButtonComponent,
 	type APIComponentInMessageActionRow,
 	type APISelectMenuComponent,
+	AllowedMentionsTypes,
 	ComponentType,
 } from "discord-api-types/v10";
 import { NubisError } from "./errors";
@@ -17,8 +21,17 @@ export interface ReplyOptions {
 	readonly content?: string;
 	/** Bare buttons are packed five to a row; each select menu gets its own row. */
 	readonly components?: readonly ComponentInput[];
-	/** Only the person who used the command or component sees the reply. */
+	readonly embeds?: readonly APIEmbed[];
+	/**
+	 * Only the person who used the command or component sees the reply.
+	 * Defaults to the command's `ephemeral` setting.
+	 */
 	readonly ephemeral?: boolean;
+	/**
+	 * Who the message may ping. Nubis only pings mentioned users by default,
+	 * never @everyone, @here or roles, so echoing user input can't mass-ping.
+	 */
+	readonly allowedMentions?: APIAllowedMentions;
 }
 
 export type ReplyInput = string | ReplyOptions;
@@ -27,7 +40,31 @@ export type ReplyInput = string | ReplyOptions;
 export interface ReplyMessage {
 	readonly content: string | undefined;
 	readonly components: readonly ActionRow[] | undefined;
-	readonly ephemeral: boolean;
+	readonly embeds: readonly APIEmbed[] | undefined;
+	/** `undefined` means "use the default for this interaction". */
+	readonly ephemeral: boolean | undefined;
+	readonly allowedMentions: APIAllowedMentions;
+}
+
+export const DEFAULT_ALLOWED_MENTIONS: APIAllowedMentions = {
+	parse: [AllowedMentionsTypes.User],
+};
+
+// Discord's message flag for ephemeral messages.
+const EPHEMERAL = 1 << 6;
+
+/** The body Discord takes for responses, edits and follow-ups. */
+export function toMessageBody(
+	message: ReplyMessage,
+	ephemeral: boolean,
+): APIInteractionResponseCallbackData {
+	return {
+		...(message.content === undefined ? {} : { content: message.content }),
+		...(message.components ? { components: [...message.components] } : {}),
+		...(message.embeds ? { embeds: [...message.embeds] } : {}),
+		allowed_mentions: message.allowedMentions,
+		...(ephemeral ? { flags: EPHEMERAL } : {}),
+	};
 }
 
 const BUTTONS_PER_ROW = 5;
@@ -74,6 +111,8 @@ export function toReplyMessage(input: ReplyInput): ReplyMessage {
 	return {
 		content: options.content,
 		components: options.components && toActionRows(options.components),
-		ephemeral: options.ephemeral ?? false,
+		embeds: options.embeds,
+		ephemeral: options.ephemeral,
+		allowedMentions: options.allowedMentions ?? DEFAULT_ALLOWED_MENTIONS,
 	};
 }

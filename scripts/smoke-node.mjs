@@ -5,6 +5,16 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const nubis = await import("../packages/nubis/dist/index.js");
+
+/** Records message text the way a real transport would send it. */
+const transportFor = (texts) => ({
+	respond: async (response) => {
+		if (response.data?.content) texts.push(response.data.content);
+	},
+	editOriginal: async (body) => texts.push(body.content),
+	deleteOriginal: async () => {},
+	followUp: async (body) => texts.push(body.content),
+});
 assert.equal(typeof nubis.command, "function");
 assert.equal(typeof nubis.option.string, "function");
 
@@ -29,11 +39,7 @@ const pong = nubis.command({
 const result = await nubis.dispatch(
 	nubis.buildCommandTree([{ path: ["pong"], definition: pong }]),
 	{ data: { name: "pong", type: 1 } },
-	{
-		reply: async (message) => replies.push(message.content),
-		update: async () => {},
-		showModal: async () => {},
-	},
+	transportFor(replies),
 );
 assert.equal(result.status, "handled");
 assert.deepEqual(replies, ["pong"]);
@@ -50,7 +56,7 @@ const rendered = confirm({ userId: "42" });
 const clicked = await nubis.dispatchComponent(
 	nubis.createComponentRegistry([confirm]),
 	{ type: 3, data: { custom_id: rendered.custom_id, component_type: 2 } },
-	{ reply: async () => {}, update: async () => {}, showModal: async () => {} },
+	transportFor([]),
 );
 assert.equal(clicked.status, "handled");
 assert.deepEqual(clicks, ["42"]);
@@ -78,10 +84,32 @@ const submittedReport = await nubis.dispatchModal(
 			],
 		},
 	},
-	{ reply: async () => {}, update: async () => {}, showModal: async () => {} },
+	transportFor([]),
 );
 assert.equal(submittedReport.status, "handled");
 assert.deepEqual(reports, ["Steve"]);
+
+// Reply lifecycle: a slow command gets "thinking…" first, then its reply.
+const trace = [];
+const slow = nubis.command({
+	description: "Slow",
+	run: async ({ reply }) => {
+		await new Promise((resolve) => setTimeout(resolve, 30));
+		await reply("finally");
+	},
+});
+await nubis.dispatch(
+	nubis.buildCommandTree([{ path: ["slow"], definition: slow }]),
+	{ type: 2, data: { name: "slow", type: 1 } },
+	{
+		respond: async (response) => trace.push(`respond:${response.type}`),
+		editOriginal: async (body) => trace.push(`edit:${body.content}`),
+		deleteOriginal: async () => trace.push("delete"),
+		followUp: async () => trace.push("followUp"),
+	},
+	{ autoDeferMs: 10 },
+);
+assert.deepEqual(trace, ["respond:5", "edit:finally"]);
 
 const { version } = JSON.parse(
 	readFileSync(new URL("../packages/nubis/package.json", import.meta.url)),

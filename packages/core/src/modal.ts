@@ -69,6 +69,8 @@ export interface ModalContext<State, F extends FieldMap> {
 	reply(message: ReplyInput): Promise<void>;
 	/** Edits the message the modal was opened from. Only works for modals opened by a component. */
 	update(message: ReplyInput): Promise<void>;
+	editReply(message: ReplyInput): Promise<void>;
+	defer(options?: { readonly ephemeral?: boolean }): Promise<void>;
 }
 
 export interface ModalOverrides<F extends FieldMap> {
@@ -259,6 +261,8 @@ export function modal<
 				interaction,
 				reply: base.reply,
 				update: base.update,
+				editReply: base.editReply,
+				defer: base.defer,
 			});
 			return true;
 		},

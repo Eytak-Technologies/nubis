@@ -90,14 +90,18 @@ describe("modal", () => {
 
 	test("hands typed values to onSubmit; empty optional fields are undefined", async () => {
 		submitted.length = 0;
-		const { replies, responder } = recorder();
+		const { replies, transport } = recorder();
 		const result = await dispatchModal(
 			createComponentRegistry([report]),
 			modalSubmit('report~{"serverId":"s1"}', { player: "Steve", details: "" }),
-			responder,
+			transport,
 		);
 
-		expect(result).toEqual({ status: "handled", id: "report" });
+		expect(result).toEqual({
+			status: "handled",
+			id: "report",
+			responded: true,
+		});
 		expect(submitted).toEqual([
 			{
 				values: { player: "Steve", details: undefined },
@@ -113,9 +117,9 @@ describe("modal", () => {
 			modalSubmit('report~{"serverId":"s1"}', { details: "no player" }),
 			modalSubmit('report~{"serverId":1}', { player: "Steve" }),
 		]) {
-			const { responder } = recorder();
+			const { transport } = recorder();
 			expect(
-				(await dispatchModal(registry, interaction, responder)).status,
+				(await dispatchModal(registry, interaction, transport)).status,
 			).toBe("stale");
 		}
 	});
@@ -123,19 +127,19 @@ describe("modal", () => {
 	test("modals and components can't trigger each other", async () => {
 		const ok = button({ id: "ok", label: "OK", onClick: () => {} });
 		const registry = createComponentRegistry([report, ok]);
-		const { responder } = recorder();
+		const { transport } = recorder();
 
 		const asClick = await dispatchComponent(
 			registry,
 			componentInteraction('report~{"serverId":"s1"}', {
 				type: ComponentType.Button,
 			}),
-			responder,
+			transport,
 		);
 		const asSubmit = await dispatchModal(
 			registry,
 			modalSubmit("ok", {}),
-			responder,
+			transport,
 		);
 
 		expect(asClick.status).toBe("stale");
@@ -186,8 +190,8 @@ describe("showModal", () => {
 				}),
 			},
 		]);
-		const { modals, responder } = recorder();
-		await dispatch(tree, chatInput("report"), responder);
+		const { modals, transport } = recorder();
+		await dispatch(tree, chatInput("report"), transport);
 		expect(modals.map((m) => m.custom_id)).toEqual([
 			'report~{"serverId":"s1"}',
 		]);
@@ -201,13 +205,13 @@ describe("showModal", () => {
 			onClick: ({ state, showModal }) =>
 				showModal(report({ serverId: state.serverId })),
 		});
-		const { modals, responder } = recorder();
+		const { modals, transport } = recorder();
 		await dispatchComponent(
 			createComponentRegistry([open]),
 			componentInteraction(open({ serverId: "s2" }).custom_id, {
 				type: ComponentType.Button,
 			}),
-			responder,
+			transport,
 		);
 		expect(modals[0]?.title).toBe("Report a player");
 		expect(modals[0]?.custom_id).toBe('report~{"serverId":"s2"}');

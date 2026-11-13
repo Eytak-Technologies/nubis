@@ -34,8 +34,17 @@ export interface ComponentContext<State> {
 	readonly interaction: APIMessageComponentInteraction;
 	/** Sends a new message. */
 	reply(message: ReplyInput): Promise<void>;
-	/** Edits the message the component is on. */
+	/** Edits the message the component is on. Call it before reply(). */
 	update(message: ReplyInput): Promise<void>;
+	/** Edits the first reply. */
+	editReply(message: ReplyInput): Promise<void>;
+	/** Shows "thinking…" and a reply to come. */
+	defer(options?: { readonly ephemeral?: boolean }): Promise<void>;
+	/**
+	 * Acknowledges the click without a message; update() can still edit later.
+	 * Nubis does this on its own after two seconds.
+	 */
+	deferUpdate(): Promise<void>;
 	/** Opens a modal. Must be the first response, so call it before reply(). */
 	showModal(modal: ModalData): Promise<void>;
 }
@@ -45,6 +54,9 @@ export interface HandlerBase {
 	readonly state: unknown;
 	reply(message: ReplyInput): Promise<void>;
 	update(message: ReplyInput): Promise<void>;
+	editReply(message: ReplyInput): Promise<void>;
+	defer(options?: { readonly ephemeral?: boolean }): Promise<void>;
+	deferUpdate(): Promise<void>;
 	showModal(modal: ModalData): Promise<void>;
 }
 

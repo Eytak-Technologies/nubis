@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { ButtonStyle, ComponentType } from "discord-api-types/v10";
+import {
+	ButtonStyle,
+	ComponentType,
+	InteractionResponseType,
+} from "discord-api-types/v10";
 import { z } from "zod";
 import { componentInteraction, recorder } from "./__fixtures__/interactions";
 import {
@@ -11,6 +15,7 @@ import {
 	stateOf,
 	stringSelect,
 	toActionRows,
+	DEFAULT_ALLOWED_MENTIONS,
 } from "./index";
 
 type Equal<A, B> =
@@ -62,21 +67,27 @@ describe("button", () => {
 		// @ts-expect-error: a button with state can't be rendered without it
 		expect(() => confirmBan()).not.toThrow();
 
-		const { messages, responder } = recorder();
+		const { calls, transport } = recorder();
 		const result = await dispatchComponent(
 			createComponentRegistry([confirmBan]),
 			click(rendered.custom_id),
-			responder,
+			transport,
 		);
 
-		expect(result).toEqual({ status: "handled", id: "confirm-ban" });
-		expect(messages).toEqual([
+		expect(result).toEqual({
+			status: "handled",
+			id: "confirm-ban",
+			responded: true,
+		});
+		expect(calls).toEqual([
 			{
-				kind: "update",
-				message: {
-					content: "Banned 42 for 7 days",
-					components: undefined,
-					ephemeral: false,
+				type: "respond",
+				response: {
+					type: InteractionResponseType.UpdateMessage,
+					data: {
+						content: "Banned 42 for 7 days",
+						allowed_mentions: DEFAULT_ALLOWED_MENTIONS,
+					},
 				},
 			},
 		]);
@@ -98,17 +109,23 @@ describe("button", () => {
 			'confirm-ban~{"userId":"everyone"}',
 			"confirm-ban~{not json",
 		]) {
-			const { messages, responder } = recorder();
+			const { calls, transport } = recorder();
 			const result = await dispatchComponent(
 				registry,
 				click(customId),
-				responder,
+				transport,
 			);
 			expect(result.status).toBe("stale");
-			expect(messages[0]?.message).toEqual({
-				content: STALE_MESSAGE,
-				components: undefined,
-				ephemeral: true,
+			expect(calls[0]).toEqual({
+				type: "respond",
+				response: {
+					type: InteractionResponseType.ChannelMessageWithSource,
+					data: {
+						content: STALE_MESSAGE,
+						allowed_mentions: DEFAULT_ALLOWED_MENTIONS,
+						flags: 64,
+					},
+				},
 			});
 		}
 		expect(clicks).toBe(0);
@@ -169,28 +186,28 @@ describe("stringSelect", () => {
 	});
 
 	test("hands typed values to the handler", async () => {
-		const { replies, responder } = recorder();
+		const { replies, transport } = recorder();
 		const result = await dispatchComponent(
 			createComponentRegistry([role]),
 			componentInteraction('pick-role~{"guild":"g1"}', {
 				type: ComponentType.StringSelect,
 				values: ["redstoner", "builder"],
 			}),
-			responder,
+			transport,
 		);
 		expect(result.status).toBe("handled");
 		expect(replies).toEqual(["g1: redstoner,builder"]);
 	});
 
 	test("values that aren't options anymore are stale", async () => {
-		const { responder } = recorder();
+		const { transport } = recorder();
 		const result = await dispatchComponent(
 			createComponentRegistry([role]),
 			componentInteraction('pick-role~{"guild":"g1"}', {
 				type: ComponentType.StringSelect,
 				values: ["admin"],
 			}),
-			responder,
+			transport,
 		);
 		expect(result.status).toBe("stale");
 	});
@@ -213,15 +230,15 @@ describe("stringSelect", () => {
 });
 
 describe("dispatchComponent", () => {
-	test("unknown ids are reported, not answered", async () => {
-		const { messages, responder } = recorder();
+	test("unknown ids (removed components) get the stale answer", async () => {
+		const { replies, transport } = recorder();
 		const result = await dispatchComponent(
 			createComponentRegistry([]),
-			click("from-another-bot"),
-			responder,
+			click("removed-button"),
+			transport,
 		);
-		expect(result).toEqual({ status: "unknown", customId: "from-another-bot" });
-		expect(messages).toEqual([]);
+		expect(result).toEqual({ status: "unknown", customId: "removed-button" });
+		expect(replies).toEqual([STALE_MESSAGE]);
 	});
 
 	test("a select interaction can't trigger a button handler", async () => {
@@ -230,14 +247,14 @@ describe("dispatchComponent", () => {
 			label: "Refresh",
 			onClick: () => {},
 		});
-		const { responder } = recorder();
+		const { transport } = recorder();
 		const result = await dispatchComponent(
 			createComponentRegistry([refresh]),
 			componentInteraction("refresh", {
 				type: ComponentType.StringSelect,
 				values: [],
 			}),
-			responder,
+			transport,
 		);
 		expect(result.status).toBe("stale");
 	});

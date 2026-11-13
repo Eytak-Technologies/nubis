@@ -8,9 +8,9 @@ import {
 	RUNTIME,
 } from "./component";
 import { decodeCustomId } from "./custom-id";
-import type { Responder } from "./dispatch";
+import { answerError } from "./dispatch";
 import { NubisError } from "./errors";
-import { toReplyMessage } from "./reply";
+import { createLifecycle, type Scheduler, type Transport } from "./lifecycle";
 
 export type ComponentRegistry = ReadonlyMap<string, ComponentRuntime>;
 
@@ -31,69 +31,114 @@ export function createComponentRegistry(
 }
 
 export type ComponentDispatchResult =
-	| { readonly status: "handled"; readonly id: string }
+	| {
+			readonly status: "handled";
+			readonly id: string;
+			readonly responded: boolean;
+	  }
+	| { readonly status: "error"; readonly id: string; readonly error: unknown }
 	| { readonly status: "unknown"; readonly customId: string }
 	| { readonly status: "stale"; readonly id: string; readonly reason: string };
 
 export const STALE_MESSAGE =
 	"This no longer works. It may be from an older message; try the command again.";
 
+export interface ComponentDispatchOptions {
+	readonly autoDeferMs?: number | false;
+	readonly schedule?: Scheduler;
+}
+
 async function route(
 	registry: ComponentRegistry,
 	interaction: APIMessageComponentInteraction | APIModalSubmitInteraction,
-	responder: Responder,
+	transport: Transport,
+	kind: "component" | "modal",
+	options: ComponentDispatchOptions,
 ): Promise<ComponentDispatchResult> {
 	const customId = interaction.data.custom_id;
 	const decoded = decodeCustomId(customId);
 	const runtime = registry.get(decoded.id);
-	if (!runtime) return { status: "unknown", customId };
+	const lifecycle = createLifecycle(transport, {
+		kind,
+		autoDeferMs: options.autoDeferMs,
+		schedule: options.schedule,
+	});
 
-	const stale = async (reason: string): Promise<ComponentDispatchResult> => {
-		await responder.reply(
-			toReplyMessage({ content: STALE_MESSAGE, ephemeral: true }),
-		);
-		return { status: "stale", id: runtime.id, reason };
+	const stale = async (
+		id: string,
+		reason: string,
+	): Promise<ComponentDispatchResult> => {
+		await lifecycle.reply({ content: STALE_MESSAGE, ephemeral: true });
+		await lifecycle.finish();
+		return { status: "stale", id, reason };
 	};
 
-	if (!decoded.ok) return stale("custom_id state is not valid JSON");
+	// A bot only receives clicks on its own messages, so an unknown id is a
+	// component this bot has since removed: answer it like any stale one.
+	if (!runtime) {
+		await lifecycle.reply({ content: STALE_MESSAGE, ephemeral: true });
+		await lifecycle.finish();
+		return { status: "unknown", customId };
+	}
+	if (!decoded.ok)
+		return stale(runtime.id, "custom_id state is not valid JSON");
 
-	let state: unknown;
-	if (runtime.schema) {
-		const result = await runtime.schema["~standard"].validate(decoded.state);
-		if (result.issues) {
-			return stale(result.issues.map((issue) => issue.message).join("; "));
+	try {
+		let state: unknown;
+		if (runtime.schema) {
+			const result = await runtime.schema["~standard"].validate(decoded.state);
+			if (result.issues) {
+				return stale(
+					runtime.id,
+					result.issues.map((issue) => issue.message).join("; "),
+				);
+			}
+			state = result.value;
 		}
-		state = result.value;
+
+		const handled = await runtime.handle(
+			{
+				state,
+				reply: lifecycle.reply,
+				update: lifecycle.update,
+				editReply: lifecycle.editReply,
+				defer: lifecycle.defer,
+				deferUpdate: lifecycle.deferUpdate,
+				showModal: lifecycle.showModal,
+			},
+			interaction,
+		);
+		if (!handled)
+			return stale(runtime.id, "the interaction doesn't match this component");
+	} catch (error) {
+		await answerError(lifecycle);
+		await lifecycle.finish();
+		return { status: "error", id: runtime.id, error };
 	}
 
-	const handled = await runtime.handle(
-		{
-			state,
-			reply: (message) => responder.reply(toReplyMessage(message)),
-			update: (message) => responder.update(toReplyMessage(message)),
-			showModal: (modal) => responder.showModal(modal),
-		},
-		interaction,
-	);
-	return handled
-		? { status: "handled", id: runtime.id }
-		: stale("the interaction doesn't match this component");
+	// A click whose handler didn't answer is acknowledged silently, so Discord
+	// doesn't show "This interaction failed" for buttons that just do something.
+	if (kind === "component") await lifecycle.deferUpdate();
+	const { responded } = await lifecycle.finish();
+	return { status: "handled", id: runtime.id, responded };
 }
 
 /** Routes a button click or select to its component, with its state validated. */
 export function dispatchComponent(
 	registry: ComponentRegistry,
 	interaction: APIMessageComponentInteraction,
-	responder: Responder,
+	transport: Transport,
+	options: ComponentDispatchOptions = {},
 ): Promise<ComponentDispatchResult> {
-	return route(registry, interaction, responder);
+	return route(registry, interaction, transport, "component", options);
 }
 
 /** Routes a modal submission to its modal, with state and values validated. */
 export function dispatchModal(
 	registry: ComponentRegistry,
 	interaction: APIModalSubmitInteraction,
-	responder: Responder,
+	transport: Transport,
+	options: ComponentDispatchOptions = {},
 ): Promise<ComponentDispatchResult> {
-	return route(registry, interaction, responder);
+	return route(registry, interaction, transport, "modal", options);
 }

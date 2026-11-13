@@ -20,6 +20,7 @@ export type {
 } from "./component";
 export { button, stringSelect } from "./component";
 export type {
+	ComponentDispatchOptions,
 	ComponentDispatchResult,
 	ComponentRegistry,
 } from "./component-dispatch";
@@ -29,8 +30,16 @@ export {
 	dispatchModal,
 	STALE_MESSAGE,
 } from "./component-dispatch";
-export type { DispatchResult, Responder } from "./dispatch";
-export { dispatch } from "./dispatch";
+export type { DispatchOptions, DispatchResult } from "./dispatch";
+export { dispatch, ERROR_MESSAGE, UNKNOWN_COMMAND_MESSAGE } from "./dispatch";
+export type {
+	InteractionKind,
+	Lifecycle,
+	LifecycleOptions,
+	Scheduler,
+	Transport,
+} from "./lifecycle";
+export { createLifecycle, DEFAULT_AUTO_DEFER_MS } from "./lifecycle";
 export { NubisError } from "./errors";
 export type {
 	FieldMap,
@@ -61,7 +70,12 @@ export type {
 	ReplyMessage,
 	ReplyOptions,
 } from "./reply";
-export { toActionRows, toReplyMessage } from "./reply";
+export {
+	DEFAULT_ALLOWED_MENTIONS,
+	toActionRows,
+	toMessageBody,
+	toReplyMessage,
+} from "./reply";
 export type {
 	SchemaInput,
 	SchemaOutput,

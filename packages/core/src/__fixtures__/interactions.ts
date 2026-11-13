@@ -5,11 +5,14 @@ import {
 	type APIMessageComponentInteraction,
 	type APIModalSubmitInteraction,
 	ComponentType,
+	type APIInteractionResponse,
+	type APIInteractionResponseCallbackData,
+	type APIModalInteractionResponseCallbackData,
 	ApplicationCommandType,
+	InteractionResponseType,
 	InteractionType,
 } from "discord-api-types/v10";
-import type { ModalData } from "../component";
-import type { ReplyMessage } from "../reply";
+import type { Scheduler, Transport } from "../lifecycle";
 
 /** A button click or string select, as Discord sends it. */
 export function componentInteraction(
@@ -54,26 +57,78 @@ export function chatInput(
 	} as unknown as APIChatInputApplicationCommandInteraction;
 }
 
+export type TransportCall =
+	| { readonly type: "respond"; readonly response: APIInteractionResponse }
+	| {
+			readonly type: "editOriginal";
+			readonly body: APIInteractionResponseCallbackData;
+	  }
+	| { readonly type: "deleteOriginal" }
+	| {
+			readonly type: "followUp";
+			readonly body: APIInteractionResponseCallbackData;
+	  };
+
+/**
+ * A transport that records what would have been sent to Discord. The arrays
+ * are live (filled as calls happen), so they can be destructured up front.
+ */
 export function recorder() {
+	const calls: TransportCall[] = [];
+	/** Text of every message sent, edited or followed up, in order. */
 	const replies: string[] = [];
-	const messages: { kind: "reply" | "update"; message: ReplyMessage }[] = [];
-	const modals: ModalData[] = [];
+	const modals: APIModalInteractionResponseCallbackData[] = [];
+	/** Call types in order, e.g. ["respond:5", "editOriginal"]. */
+	const trace: string[] = [];
+
+	const record = (call: TransportCall) => {
+		calls.push(call);
+		trace.push(
+			call.type === "respond" ? `respond:${call.response.type}` : call.type,
+		);
+		if (call.type === "editOriginal" || call.type === "followUp") {
+			replies.push(call.body.content ?? "");
+		} else if (call.type === "respond") {
+			const { response } = call;
+			if (
+				response.type === InteractionResponseType.ChannelMessageWithSource ||
+				response.type === InteractionResponseType.UpdateMessage
+			) {
+				replies.push(response.data?.content ?? "");
+			} else if (response.type === InteractionResponseType.Modal) {
+				modals.push(response.data);
+			}
+		}
+	};
+
+	const transport: Transport = {
+		respond: async (response) => record({ type: "respond", response }),
+		editOriginal: async (body) => record({ type: "editOriginal", body }),
+		deleteOriginal: async () => record({ type: "deleteOriginal" }),
+		followUp: async (body) => record({ type: "followUp", body }),
+	};
+	return { calls, replies, modals, trace, transport };
+}
+
+/** A scheduler driven by hand, so auto-defer tests don't wait on real time. */
+export function manualClock() {
+	const pending: { run: () => void; ms: number; cancelled: boolean }[] = [];
 	return {
-		modals,
-		/** Text of every reply, for quick assertions. */
-		replies,
-		messages,
-		responder: {
-			reply: async (message: ReplyMessage) => {
-				replies.push(message.content ?? "");
-				messages.push({ kind: "reply", message });
-			},
-			update: async (message: ReplyMessage) => {
-				messages.push({ kind: "update", message });
-			},
-			showModal: async (modal: ModalData) => {
-				modals.push(modal);
-			},
+		schedule: ((run, ms) => {
+			const timer = { run, ms, cancelled: false };
+			pending.push(timer);
+			return () => {
+				timer.cancelled = true;
+			};
+		}) satisfies Scheduler,
+		/** Fires every timer that hasn't been cancelled. */
+		fire() {
+			for (const timer of pending.splice(0)) if (!timer.cancelled) timer.run();
+		},
+		get scheduledMs() {
+			return pending
+				.filter((timer) => !timer.cancelled)
+				.map((timer) => timer.ms);
 		},
 	};
 }
