@@ -204,6 +204,35 @@ describe("components", () => {
 		);
 	});
 
+	test("editReply() after deferUpdate() edits the component's message", async () => {
+		const { lifecycle, trace } = setup("component");
+		await lifecycle.deferUpdate();
+		await lifecycle.editReply("done");
+		await lifecycle.editReply("done again");
+		expect(trace).toEqual([
+			`respond:${R.DeferredMessageUpdate}`,
+			"editOriginal",
+			"editOriginal",
+		]);
+	});
+
+	test("editReply() works after a slow click was auto-deferred", async () => {
+		const { lifecycle, trace, clock } = setup("component");
+		clock.fire();
+		await lifecycle.editReply("finally");
+		expect(trace).toEqual([
+			`respond:${R.DeferredMessageUpdate}`,
+			"editOriginal",
+		]);
+	});
+
+	test("editReply() with nothing to edit says what's missing", async () => {
+		const { lifecycle } = setup("component");
+		await expect(lifecycle.editReply("x")).rejects.toThrow(
+			/reply, defer\(\) or deferUpdate\(\)/,
+		);
+	});
+
 	test("commands have no update() or deferUpdate()", async () => {
 		const { lifecycle } = setup("command");
 		await expect(lifecycle.update("x")).rejects.toThrow(NubisError);

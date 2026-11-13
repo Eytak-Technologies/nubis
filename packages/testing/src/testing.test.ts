@@ -43,6 +43,21 @@ const ban = command({
 		),
 });
 
+describe("run() arguments", () => {
+	test("optional when every option is optional", async () => {
+		const search = command({
+			description: "Search",
+			options: { query: option.string() },
+			run: ({ options, reply }) => reply(options.query ?? "everything"),
+		});
+		// Compiles without an argument: nothing is required.
+		expect((await testCommand(search).run()).replies).toEqual(["everything"]);
+		expect((await testCommand(search).run({ query: "x" })).replies).toEqual([
+			"x",
+		]);
+	});
+});
+
 describe("testCommand", () => {
 	test("runs with typed options and records the reply", async () => {
 		const result = await testCommand(ban)

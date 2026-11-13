@@ -88,6 +88,42 @@ describe("modal", () => {
 		expect(data.components[0]).toMatchObject({ component: { value: "Steve" } });
 	});
 
+	test("can reword fields per render, e.g. in the user's language", () => {
+		const data = report(
+			{ serverId: "s1" },
+			{
+				title: "Oyuncu bildir",
+				fields: {
+					player: { label: "Oyuncu" },
+					details: {
+						label: "Ne oldu?",
+						placeholder: "Açık yaz",
+						description: "Kısaca",
+					},
+				},
+			},
+		);
+		expect(data.components[0]).toMatchObject({ label: "Oyuncu" });
+		expect(data.components[1]).toMatchObject({
+			label: "Ne oldu?",
+			description: "Kısaca",
+			component: { placeholder: "Açık yaz" },
+		});
+		// Untouched fields keep their own words.
+		expect(report({ serverId: "s1" }).components[0]).toMatchObject({
+			label: "Player",
+		});
+	});
+
+	test("a reworded field is held to the same limits", () => {
+		expect(() =>
+			report(
+				{ serverId: "s1" },
+				{ fields: { player: { label: "x".repeat(46) } } },
+			),
+		).toThrow(/field "player": the label must be 1-45 characters/);
+	});
+
 	test("hands typed values to onSubmit; empty optional fields are undefined", async () => {
 		submitted.length = 0;
 		const { replies, transport } = recorder();

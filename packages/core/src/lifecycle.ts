@@ -230,6 +230,17 @@ export function createLifecycle(
 		editReply: (input) =>
 			serial(async () => {
 				const message = toReplyMessage(input);
+				// After deferUpdate() (yours, or the auto-defer on a slow click) the
+				// interaction's message is the one the component is on, so editing the
+				// reply edits that message, the same as update().
+				if (phase.type === "deferred-update" || phase.type === "updated") {
+					await transport.editOriginal(
+						toMessageBody(message, false),
+						message.files,
+					);
+					phase = { type: "updated" };
+					return;
+				}
 				if (phase.type === "replied" || phase.type === "deferred") {
 					const ephemeral =
 						phase.type === "deferred" ? phase.ephemeral : ephemeralOf(message);
@@ -240,7 +251,9 @@ export function createLifecycle(
 					phase = { type: "replied" };
 					return;
 				}
-				throw new NubisError("editReply() needs a reply or defer() first.");
+				throw new NubisError(
+					"editReply() needs a reply, defer() or deferUpdate() first.",
+				);
 			}),
 
 		defer: (deferOptions) =>

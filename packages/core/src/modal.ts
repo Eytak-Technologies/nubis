@@ -79,10 +79,22 @@ export interface ModalContext<State, F extends FieldMap> {
 	defer(options?: { readonly ephemeral?: boolean }): Promise<void>;
 }
 
+/** What a field may say differently each time the modal is shown. */
+export interface FieldTextOverrides {
+	readonly label?: string;
+	readonly description?: string;
+	readonly placeholder?: string;
+}
+
 export interface ModalOverrides<F extends FieldMap> {
 	readonly title?: string;
 	/** Prefills fields, e.g. with the current value when editing something. */
 	readonly values?: { readonly [K in keyof F]?: string };
+	/**
+	 * A field's label, description or placeholder for this showing, e.g. in
+	 * the user's language. Lengths are checked like the definition's.
+	 */
+	readonly fields?: { readonly [K in keyof F]?: FieldTextOverrides };
 }
 
 export interface ModalConfig<
@@ -179,9 +191,12 @@ function renderField(
 	name: string,
 	field: TextInputDefinition,
 	value?: string,
+	text?: FieldTextOverrides,
 ): APILabelComponent {
-	const { label, description, style, placeholder, minLength, maxLength } =
-		field.config;
+	const { style, minLength, maxLength } = field.config;
+	const label = text?.label ?? field.config.label;
+	const description = text?.description ?? field.config.description;
+	const placeholder = text?.placeholder ?? field.config.placeholder;
 	return {
 		type: ComponentType.Label,
 		label,
@@ -244,9 +259,24 @@ export function modal<
 		return {
 			custom_id: renderCustomId(config.id, state, config.store),
 			title,
-			components: Object.entries(config.fields).map(([name, field]) =>
-				renderField(name, field, overrides?.values?.[name]),
-			),
+			components: Object.entries(config.fields).map(([name, field]) => {
+				const text = overrides?.fields?.[name];
+				if (text) {
+					const at = `Modal "${config.id}" field "${name}"`;
+					checkLength(text.label, MAX_LABEL, `${at}: the label`);
+					checkLength(
+						text.description,
+						MAX_DESCRIPTION,
+						`${at}: the description`,
+					);
+					checkLength(
+						text.placeholder,
+						MAX_PLACEHOLDER,
+						`${at}: the placeholder`,
+					);
+				}
+				return renderField(name, field, overrides?.values?.[name], text);
+			}),
 		};
 	};
 

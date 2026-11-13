@@ -149,7 +149,8 @@ export interface CommandTester<T extends OptionMap> {
 	/** Bot-wide guards, middleware or timing, as dispatch takes them. */
 	with(options: Options): CommandTester<T>;
 	run(
-		...args: keyof T extends never
+		// Optional whenever nothing is required, not only when there are no options.
+		...args: [RequiredKeys<T>] extends [never]
 			? [options?: TestOptions<T>]
 			: [options: TestOptions<T>]
 	): Promise<TestResult>;

@@ -129,6 +129,7 @@ export type {
 	ModalConfig,
 	ModalContext,
 	ModalDefinition,
+	FieldTextOverrides,
 	ModalOverrides,
 	ModalValues,
 	TextInputConfig,
