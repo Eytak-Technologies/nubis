@@ -378,4 +378,56 @@ const tested = await testing
 	.run({ who: testing.fake.user("alice") });
 assert.deepEqual(tested.replies, ["hi alice"]);
 
+// The gateway bot and command sync load and work on plain Node (fake network).
+const nodeEntry = await import("../packages/nubis/dist/node.js");
+const restCalls = [];
+const fakeRestClient = Object.fromEntries(
+	["get", "post", "put", "patch", "delete"].map((method) => [
+		method,
+		async (route, options) => {
+			restCalls.push(`${method} ${route}`);
+			return method === "get" ? [] : options;
+		},
+	]),
+);
+const synced = await nodeEntry.syncCommands({
+	rest: fakeRestClient,
+	applicationId: "a1",
+	project,
+	guildId: "g1",
+});
+assert.equal(synced.applied, true);
+let dispatchListener;
+const bot = nodeEntry.createBot({
+	token: "t",
+	project,
+	rest: fakeRestClient,
+	gateway: () => ({
+		on: (_event, fn) => {
+			dispatchListener = fn;
+		},
+		connect: async () => {},
+		destroy: () => {},
+	}),
+});
+await bot.start();
+dispatchListener(
+	{
+		op: 0,
+		t: "INTERACTION_CREATE",
+		d: {
+			id: "i1",
+			application_id: "a1",
+			token: "tok",
+			type: 2,
+			user: { id: "u1" },
+			data: { id: "c1", type: 1, name: "ping" },
+		},
+	},
+	0,
+);
+await new Promise((resolve) => setTimeout(resolve, 20));
+assert.ok(restCalls.includes("post /interactions/i1/tok/callback"));
+await bot.stop();
+
 console.log(`Node ${process.version}: smoke test passed`);

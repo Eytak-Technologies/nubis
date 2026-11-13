@@ -14,12 +14,22 @@ describe("nubis", () => {
 	});
 
 	test("prints help with no arguments", () => {
-		const result = runCli([]);
-		expect(result.code).toBe(0);
-		expect(result.output).toContain("Usage: nubis <command>");
+		expect(runCli([])).toMatchObject({
+			code: 0,
+			output: expect.stringContaining("Usage: nubis <command>"),
+		});
+	});
+
+	test("hands Discord commands to the runner with their arguments", () => {
+		expect(runCli(["sync", "--global"])).toEqual({
+			run: "sync",
+			args: ["--global"],
+		});
+		expect(runCli(["dev"])).toEqual({ run: "dev", args: [] });
+		expect(runCli(["start"])).toEqual({ run: "start", args: [] });
 	});
 
 	test("rejects unknown commands", () => {
-		expect(runCli(["deploy"]).code).toBe(1);
+		expect(runCli(["deploy"])).toMatchObject({ code: 1 });
 	});
 });

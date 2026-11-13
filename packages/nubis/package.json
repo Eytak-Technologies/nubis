@@ -47,8 +47,10 @@
 		"lint": "biome lint ."
 	},
 	"dependencies": {
+		"@discordjs/rest": "^2.6.3",
+		"@discordjs/ws": "^2.0.4",
 		"@nubisjs/core": "workspace:*",
-		"discord-api-types": "^0.38.59",
-		"@nubisjs/testing": "workspace:*"
+		"@nubisjs/testing": "workspace:*",
+		"discord-api-types": "^0.38.59"
 	}
 }

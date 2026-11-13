@@ -1,40 +1,25 @@
-import {
-	type CommandTree,
-	type ComponentDispatchOptions,
-	type ComponentRegistry,
-	type DispatchOptions,
-	dispatch,
-	dispatchAutocomplete,
-	dispatchComponent,
-	dispatchMenu,
-	dispatchModal,
-	type MenuDefinition,
-	NubisError,
-	type ReplyFile,
-	type Transport,
-} from "@nubisjs/core";
+import { NubisError, type ReplyFile, type Transport } from "@nubisjs/core";
 import {
 	type APIInteraction,
 	type APIInteractionResponse,
 	type APIInteractionResponseCallbackData,
-	ApplicationCommandType,
 	InteractionResponseType,
 	InteractionType,
 } from "discord-api-types/v10";
+import {
+	type InteractionProject,
+	type RouteOptions,
+	routeInteraction,
+} from "./route";
 
-/** The parts of a project that answer interactions. A loaded Project fits. */
-export interface InteractionProject {
-	readonly tree: CommandTree;
-	readonly components: ComponentRegistry;
-	readonly menus: readonly MenuDefinition[];
-}
+export type { InteractionProject } from "./route";
 
 export interface InteractionHandlerOptions {
 	/** The application's public key from the Developer Portal (hex). */
 	readonly publicKey: string;
 	readonly project: InteractionProject;
 	/** Guards, middleware and auto-defer settings for every interaction. */
-	readonly dispatch?: DispatchOptions & ComponentDispatchOptions;
+	readonly dispatch?: RouteOptions;
 	/**
 	 * Keeps work alive after the HTTP response is sent (follow-ups, edits).
 	 * Serverless platforms provide this, e.g. `ctx.waitUntil` on Workers.
@@ -238,40 +223,6 @@ function webhookTransport(options: WebhookTransportOptions): Transport {
 	};
 }
 
-// ------------------------------------------------------------------- routing
-
-function route(
-	project: InteractionProject,
-	interaction: APIInteraction,
-	transport: Transport,
-	options: DispatchOptions & ComponentDispatchOptions,
-): Promise<{ readonly status: string; readonly error?: unknown }> {
-	switch (interaction.type) {
-		case InteractionType.ApplicationCommand:
-			return interaction.data.type === ApplicationCommandType.ChatInput
-				? dispatch(project.tree, interaction as never, transport, options)
-				: dispatchMenu(project.menus, interaction as never, transport, options);
-		case InteractionType.MessageComponent:
-			return dispatchComponent(
-				project.components,
-				interaction,
-				transport,
-				options,
-			);
-		case InteractionType.ApplicationCommandAutocomplete:
-			return dispatchAutocomplete(
-				project.tree,
-				interaction,
-				transport,
-				options,
-			);
-		case InteractionType.ModalSubmit:
-			return dispatchModal(project.components, interaction, transport, options);
-		default:
-			return Promise.resolve({ status: "unsupported" });
-	}
-}
-
 const json = (body: unknown, status = 200) =>
 	new Response(JSON.stringify(body), {
 		status,
@@ -346,7 +297,7 @@ export function createInteractionHandler(
 			},
 		});
 
-		const work = route(
+		const work = routeInteraction(
 			options.project,
 			interaction,
 			transport,
