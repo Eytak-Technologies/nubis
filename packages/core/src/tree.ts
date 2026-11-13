@@ -35,6 +35,14 @@ export interface CommandFolder {
 	readonly nsfw?: boolean;
 }
 
+/** Settings for `commands/<folder>/_folder.ts`; the loader fills in the path. */
+export type FolderSettings = Omit<CommandFolder, "path">;
+
+/** Defines a folder's settings, for its `_folder.ts` file. An identity function, for types. */
+export function folder(settings: FolderSettings): FolderSettings {
+	return settings;
+}
+
 export interface CommandParent {
 	readonly type: "parent";
 	readonly name: string;

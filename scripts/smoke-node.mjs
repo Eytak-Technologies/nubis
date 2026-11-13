@@ -246,4 +246,14 @@ const selected = await nubis.dispatchComponent(
 assert.equal(selected.status, "handled");
 assert.deepEqual(picked, [`u2:${"x".repeat(150)}`]);
 
+// The loader reads a JavaScript project from disk under plain Node.
+const { loadProject } = await import("../packages/nubis/dist/node.js");
+const project = await loadProject(
+	new URL("./fixtures/project", import.meta.url).pathname,
+);
+assert.deepEqual([...project.tree.keys()], ["ping", "tools"]);
+const [, tools] = nubis.toCommandPayloads(project.tree);
+assert.equal(tools.description, "Handy tools");
+assert.equal(project.events.get("ready").length, 1);
+
 console.log(`Node ${process.version}: smoke test passed`);

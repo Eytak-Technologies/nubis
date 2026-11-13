@@ -185,4 +185,5 @@ export type {
 	CommandParent,
 	CommandTree,
 } from "./tree";
-export { buildCommandTree } from "./tree";
+export type { FolderSettings } from "./tree";
+export { buildCommandTree, folder } from "./tree";
