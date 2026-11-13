@@ -16,10 +16,14 @@
 		"test": "turbo run test",
 		"format": "bun fmt",
 		"smoke:node": "node scripts/smoke-node.mjs",
-		"ci:verify": "bun run lint && bun fmt --check && bun run check-types && bun run test && bun run build && bun run smoke:node"
+		"ci:verify": "bun run lint && bun fmt --check && bun run check-types && bun run test && bun run build && bun run smoke:node",
+		"changeset": "changeset",
+		"version": "changeset version && bun install",
+		"release": "bun run build && bun scripts/publish.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.7",
+		"@changesets/cli": "^3.0.3",
 		"@types/bun": "^1.4.4",
 		"@types/node": "^20",
 		"turbo": "^2.11.11",

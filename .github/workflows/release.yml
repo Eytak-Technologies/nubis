@@ -1,0 +1,45 @@
+name: Release
+
+# Opens a "version packages" PR from pending changesets, and publishes to npm
+# when that PR is merged. Off until the repository variable
+# NUBIS_RELEASE_ENABLED is "true"; see CONTRIBUTING.md for the checklist.
+
+on:
+  push:
+    branches: [main]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  # npm trusted publishing and provenance.
+  id-token: write
+
+jobs:
+  release:
+    if: vars.NUBIS_RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-node@v4
+        with:
+          # npm 11.5+ for trusted publishing.
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: bun install --frozen-lockfile
+      - uses: changesets/action@v1
+        with:
+          version: bun run version
+          publish: bun run release
+          title: "chore: version packages"
+          commit: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only needed until trusted publishing is set up on npmjs.com.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # npm only attaches provenance for public repositories.
+          NPM_PROVENANCE: ${{ github.event.repository.private == false }}
