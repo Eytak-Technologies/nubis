@@ -1,5 +1,11 @@
 # @nubisjs/core
 
+## 0.1.0-next.1
+
+### Minor Changes
+
+- 4f17f74: Localizations: commands, folders and options take `nameLocalizations` and `descriptionLocalizations`, choices and context menus take `nameLocalizations`, each checked against Discord's rules per language. `nubis sync` reads Discord's commands with their translations, so a changed translation is synced. In `nubis/testing`, `.as({ locale, guildLocale })` sets the user's and the server's language.
+
 ## 0.1.0-next.0
 
 ### Minor Changes
