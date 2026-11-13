@@ -2,7 +2,9 @@
 // published code fails CI instead of failing users.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve as resolvePath } from "node:path";
 
 const nubis = await import("../packages/nubis/dist/index.js");
 
@@ -178,10 +180,24 @@ const cli = (file, args) =>
 	execFileSync(process.execPath, [file, ...args], { encoding: "utf8" }).trim();
 
 assert.equal(cli("packages/nubis/dist/cli.js", ["--version"]), version);
-assert.match(
-	cli("packages/create-nubis/dist/index.js", ["ticket-bot"]),
-	/ticket-bot/,
+// create-nubis writes a real project; do it in a temp folder.
+const scratch = mkdtempSync(join(tmpdir(), "nubis-smoke-"));
+const created = execFileSync(
+	process.execPath,
+	[
+		resolvePath("packages/create-nubis/dist/index.js"),
+		"ticket-bot",
+		"--pm",
+		"npm",
+	],
+	{ cwd: scratch, encoding: "utf8" },
 );
+assert.match(created, /Created ticket-bot/);
+const generated = JSON.parse(
+	readFileSync(join(scratch, "ticket-bot", "package.json"), "utf8"),
+);
+assert.equal(generated.name, "ticket-bot");
+assert.equal(generated.scripts.test, "vitest run");
 
 // Context menus and events.
 const menuReplies = [];

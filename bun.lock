@@ -29,6 +29,9 @@
       "bin": {
         "create-nubis": "./dist/index.js",
       },
+      "devDependencies": {
+        "nubis": "workspace:*",
+      },
     },
     "packages/nubis": {
       "name": "nubis",

@@ -31,5 +31,8 @@
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
 		"lint": "biome lint ."
+	},
+	"devDependencies": {
+		"nubis": "workspace:*"
 	}
 }
