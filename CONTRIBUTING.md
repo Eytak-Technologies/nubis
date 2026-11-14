@@ -50,7 +50,7 @@ Releases run from `.github/workflows/release.yml` on every push to `main`:
 
 ### Prereleases
 
-The repository is in changesets' prerelease mode (`.changeset/pre.json`, tag `next`): `bun run version` makes `0.1.0-next.N` versions, and `scripts/publish.ts` publishes any version with a `-` under npm's `next` dist-tag, so `npm install nubis` still gets `latest` while `npm install nubis@next` gets the prerelease. Changesets consumed by a prerelease move to `.changeset/pre/` and come back together in the final changelog. For 0.1.0 itself: `bunx changeset pre exit`, then `bun run version`.
+Stable versions are published under npm's `latest` dist-tag. For a prerelease, enter changesets' prerelease mode with `bunx changeset pre enter next`: `bun run version` then makes `X.Y.Z-next.N` versions, and `scripts/publish.ts` publishes any version with a `-` under the `next` dist-tag, so `npm install nubis` keeps getting `latest`. Leave it with `bunx changeset pre exit` before the stable version.
 
 The workflow does nothing until the repository variable `NUBIS_RELEASE_ENABLED` is `true`. Before turning it on:
 
